@@ -50,6 +50,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [signinStep, setSigninStep] = useState<'form' | 'second_factor'>('form');
+  const [loginSecondFactorCode, setLoginSecondFactorCode] = useState('');
+  const [loginSecondFactorEmailId, setLoginSecondFactorEmailId] = useState<string | null>(null);
+  const [loginSecondFactorSafeEmail, setLoginSecondFactorSafeEmail] = useState<string | null>(null);
 
   // Forgot password fields
   const [resetIdentifier, setResetIdentifier] = useState('');
@@ -379,11 +383,108 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           await setSignInActive({ session: result.createdSessionId });
         }
         onClose();
+      } else if (
+        result.status === 'needs_second_factor' ||
+        result.status === 'needs_client_trust'
+      ) {
+        const secondFactors = (result.supportedSecondFactors || []) as Array<{
+          strategy?: string;
+          emailAddressId?: string;
+          safeIdentifier?: string;
+        }>;
+        const emailFactor =
+          secondFactors.find((f) => f.strategy === 'email_code') ||
+          secondFactors.find((f) => Boolean(f.emailAddressId));
+
+        if (!emailFactor) {
+          setErrorMsg(
+            t(
+              'Требуется двухфакторная аутентификация (2FA), но email-подтверждение не настроено для этого аккаунта.',
+              'Two-factor authentication is required, but email verification is not available for this account.'
+            )
+          );
+          return;
+        }
+
+        const emailId = emailFactor.emailAddressId || null;
+        setLoginSecondFactorEmailId(emailId);
+        setLoginSecondFactorSafeEmail(emailFactor.safeIdentifier || null);
+
+        await signIn.prepareSecondFactor(
+          emailId
+            ? { strategy: 'email_code', emailAddressId: emailId }
+            : { strategy: 'email_code' }
+        );
+
+        setSigninStep('second_factor');
+        setLoginSecondFactorCode('');
+        setSuccessMsg(
+          t(
+            `Для входа с нового устройства отправлен 6-значный код на почту${emailFactor.safeIdentifier ? ` (${emailFactor.safeIdentifier})` : ''}.`,
+            `A 6-digit verification code has been sent to your email${emailFactor.safeIdentifier ? ` (${emailFactor.safeIdentifier})` : ''}.`
+          )
+        );
       } else {
         setErrorMsg(
           t('Требуется дополнительное подтверждение аккаунта.', 'Additional account verification required.')
         );
       }
+    } catch (err) {
+      setErrorMsg(parseErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 3b. Вход: проверка кода подтверждения (Client Trust / 2FA)
+  const handleVerifySecondFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+
+    const code = loginSecondFactorCode.trim();
+    if (!code) {
+      setErrorMsg(t('Введите 6-значный код из письма.', 'Enter the 6-digit code from the email.'));
+      return;
+    }
+
+    if (!isSignInLoaded || !signIn) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await signIn.attemptSecondFactor({
+        strategy: 'email_code',
+        code,
+      });
+
+      if (result.status === 'complete') {
+        if (setSignInActive) {
+          await setSignInActive({ session: result.createdSessionId });
+        }
+        onClose();
+      } else {
+        setErrorMsg(
+          t('Не удалось завершить вход. Попробуйте ещё раз.', 'Could not complete sign-in. Please try again.')
+        );
+      }
+    } catch (err) {
+      setErrorMsg(parseErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Повторная отправка кода подтверждения при входе
+  const handleResendSignInCode = async () => {
+    if (!isSignInLoaded || !signIn) return;
+    clearMessages();
+    setIsSubmitting(true);
+    try {
+      await signIn.prepareSecondFactor(
+        loginSecondFactorEmailId
+          ? { strategy: 'email_code', emailAddressId: loginSecondFactorEmailId }
+          : { strategy: 'email_code' }
+      );
+      setSuccessMsg(t('Новый код отправлен на вашу почту.', 'A new code has been sent to your email.'));
     } catch (err) {
       setErrorMsg(parseErrorMessage(err));
     } finally {
@@ -769,78 +870,147 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* ФОРМА 2: ВХОД В АККАУНТ */}
         {mode === 'signin' && (
-          <form onSubmit={handleSignInSubmit} className="auth-form-body">
-            <div className="auth-field">
-              <label className="auth-label font-mono">
-                {t('Имя пользователя или почта', 'Username or Email')}
-              </label>
-              <div className="auth-input-wrap">
-                <User size={15} className="auth-input-icon" />
-                <input
-                  type="text"
-                  className="input-field auth-input-with-icon"
-                  placeholder={t('Логин или почта', 'Username or email')}
-                  value={loginIdentifier}
-                  onChange={(e) => setLoginIdentifier(e.target.value.replace(/^@+/, ''))}
-                  autoComplete="username"
-                  required
-                />
-              </div>
-            </div>
+          <div>
+            {signinStep === 'form' ? (
+              <form onSubmit={handleSignInSubmit} className="auth-form-body">
+                <div className="auth-field">
+                  <label className="auth-label font-mono">
+                    {t('Имя пользователя или почта', 'Username or Email')}
+                  </label>
+                  <div className="auth-input-wrap">
+                    <User size={15} className="auth-input-icon" />
+                    <input
+                      type="text"
+                      className="input-field auth-input-with-icon"
+                      placeholder={t('Логин или почта', 'Username or email')}
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value.replace(/^@+/, ''))}
+                      autoComplete="username"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="auth-field">
-              <div className="auth-label-row">
-                <label className="auth-label font-mono">
-                  {t('Пароль', 'Password')}
-                </label>
-                <button
-                  type="button"
-                  className="auth-forgot-link font-mono"
-                  onClick={() => handleSwitchMode('reset')}
-                >
-                  {t('Забыли пароль?', 'Forgot password?')}
-                </button>
-              </div>
-              <div className="auth-input-wrap">
-                <Lock size={15} className="auth-input-icon" />
-                <input
-                  type={showLoginPassword ? 'text' : 'password'}
-                  className="input-field auth-input-with-icon"
-                  placeholder="••••••••••••"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="auth-eye-btn"
-                  onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  tabIndex={-1}
-                >
-                  {showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
+                <div className="auth-field">
+                  <div className="auth-label-row">
+                    <label className="auth-label font-mono">
+                      {t('Пароль', 'Password')}
+                    </label>
+                    <button
+                      type="button"
+                      className="auth-forgot-link font-mono"
+                      onClick={() => handleSwitchMode('reset')}
+                    >
+                      {t('Забыли пароль?', 'Forgot password?')}
+                    </button>
+                  </div>
+                  <div className="auth-input-wrap">
+                    <Lock size={15} className="auth-input-icon" />
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      className="input-field auth-input-with-icon"
+                      placeholder="••••••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="auth-eye-btn"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      tabIndex={-1}
+                    >
+                      {showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
 
-            <button
-              type="submit"
-              className="btn-primary auth-submit-btn font-mono"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {t('Входим...', 'Signing in...')}
-                </>
-              ) : (
-                <>
-                  <LogIn size={16} />
-                  {t('Войти', 'Sign In')}
-                </>
-              )}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  className="btn-primary auth-submit-btn font-mono"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('Входим...', 'Signing in...')}
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={16} />
+                      {t('Войти', 'Sign In')}
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifySecondFactorSubmit} className="auth-form-body">
+                <div className="auth-step-desc font-mono">
+                  {t(
+                    `Для подтверждения входа с нового устройства введите 6-значный код, отправленный на почту${loginSecondFactorSafeEmail ? ` (${loginSecondFactorSafeEmail})` : ''}.`,
+                    `To verify sign-in from a new device, enter the 6-digit code sent to your email${loginSecondFactorSafeEmail ? ` (${loginSecondFactorSafeEmail})` : ''}.`
+                  )}
+                </div>
+
+                <div className="auth-field">
+                  <label className="auth-label font-mono">
+                    {t('Код из письма', 'Code from Email')}
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="input-field auth-code-input font-mono"
+                    placeholder="••••••"
+                    value={loginSecondFactorCode}
+                    onChange={(e) => setLoginSecondFactorCode(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary auth-submit-btn font-mono"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('Проверяем...', 'Verifying...')}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} />
+                      {t('Подтвердить и войти', 'Verify & Sign In')}
+                    </>
+                  )}
+                </button>
+
+                <div className="auth-sub-actions font-mono">
+                  <button
+                    type="button"
+                    className="btn-ghost auth-link-btn"
+                    onClick={() => {
+                      setSigninStep('form');
+                      clearMessages();
+                    }}
+                  >
+                    <ArrowLeft size={13} /> {t('Назад', 'Back')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost auth-link-btn"
+                    onClick={handleResendSignInCode}
+                    disabled={isSubmitting}
+                  >
+                    <RefreshCw size={13} /> {t('Отправить код ещё раз', 'Resend code')}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
 
         {/* ФОРМА 3: ВОССТАНОВЛЕНИЕ ПАРОЛЯ */}
