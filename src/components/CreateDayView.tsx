@@ -11,7 +11,6 @@ import {
   Search,
   Sparkles,
   Upload,
-  Wand2,
   X,
 } from 'lucide-react';
 import type { DiaryEntry, MusicInput, PhotoItem } from '../types/diary';
@@ -384,17 +383,6 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     }
   };
 
-  const handleGenerateTestPhoto = async () => {
-    setIsAnalyzingPhotos(true);
-    try {
-      const dataUrl = createQuickAtmosphericPhoto(text);
-      const item = await analyzeDataUrl(dataUrl, `generated_${Date.now()}.jpg`);
-      setPhotos((prev) => [...prev, item].slice(0, 6));
-    } finally {
-      setIsAnalyzingPhotos(false);
-    }
-  };
-
   const handleAudioUpload = async (file: File | null) => {
     if (!file) return;
     setIsAnalyzingAudio(true);
@@ -523,8 +511,8 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     if (photos.length === 0) {
       setError(
         t(
-          'Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).',
-          'Please add at least one photo of this day (or generate a test frame).'
+          'Добавьте хотя бы одну фотографию этого дня.',
+          'Please add at least one photo of this day.'
         )
       );
       return;
@@ -733,13 +721,6 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                     {t('Анализ цвета...', 'Color analysis...')}
                   </span>
                 )}
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={handleGenerateTestPhoto}
-                >
-                  <Wand2 size={14} /> {t('Тестовый кадр', 'Test Frame')}
-                </button>
               </div>
             </div>
 
