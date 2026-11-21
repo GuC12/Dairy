@@ -1,12 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, FolderKanban, Palette, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ClerkProvider } from '@clerk/clerk-react';
+import {
+  BookOpen,
+  Cloud,
+  FolderKanban,
+  LogOut,
+  Palette,
+  Plus,
+  UserCheck,
+  UserPlus,
+} from 'lucide-react';
 import type { DiaryEntry } from './types/diary';
 import { deleteDay, loadAllDays, saveDay } from './storage/diaryDb';
+import {
+  deleteCloudDay,
+  fetchCloudDays,
+  getAuthConfig,
+  upsertCloudDay,
+  type AppUserProfile,
+} from './lib/supabaseClient';
 import { ArchiveFeed } from './components/ArchiveFeed';
 import { DayFolderView } from './components/DayFolderView';
 import { CreateDayView } from './components/CreateDayView';
 import { VisualSystemPage } from './components/VisualSystemPage';
-import { BackdropCanvas, type WorldThemeId } from './components/BackdropCanvas';
+import {
+  BackdropCanvas,
+  type WorldThemeId,
+} from './components/BackdropCanvas';
+import { AuthModal } from './components/AuthModal';
+import { ClerkBridge } from './components/ClerkBridge';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
@@ -15,6 +37,8 @@ const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
   { id: 'indigo', label: 'Velvet Indigo' },
   { id: 'turrell', label: 'Turrell Dawn' },
 ];
+
+const SESSION_USER_KEY = 'atmos_active_session_user';
 
 export function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
@@ -27,6 +51,18 @@ export function App() {
   const [autoReel, setAutoReel] = useState(false);
   const [world, setWorld] = useState<WorldThemeId>('indigo');
 
+  const [authCfg, setAuthCfg] = useState(() => getAuthConfig());
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [activeUser, setActiveUser] = useState<AppUserProfile | null>(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_USER_KEY);
+      return raw ? (JSON.parse(raw) as AppUserProfile) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [cloudSynced, setCloudSynced] = useState(false);
+
   useEffect(() => {
     loadAllDays().then((days) => {
       setEntries(days);
@@ -34,8 +70,62 @@ export function App() {
     });
   }, []);
 
+  // Облачная синхронизация записей с Supabase при входе пользователя
+  useEffect(() => {
+    if (!activeUser || !authCfg.hasSupabase) return;
+    let cancelled = false;
+
+    const syncWithCloud = async () => {
+      const cloudEntries = await fetchCloudDays(activeUser.id);
+      if (cancelled || !cloudEntries) return;
+
+      if (cloudEntries.length > 0) {
+        const mergedMap = new Map<string, DiaryEntry>();
+        for (const ce of cloudEntries) {
+          mergedMap.set(ce.id, ce);
+          await saveDay(ce);
+        }
+        setEntries((prev) => {
+          for (const localItem of prev) {
+            if (!mergedMap.has(localItem.id)) {
+              mergedMap.set(localItem.id, localItem);
+              upsertCloudDay(activeUser.id, localItem).catch(() => {});
+            }
+          }
+          return Array.from(mergedMap.values()).sort(
+            (a, b) => b.indexNumber - a.indexNumber
+          );
+        });
+      } else {
+        // Если в облаке Supabase у пользователя ещё пусто — загружаем туда текущие дни
+        for (const item of entries) {
+          await upsertCloudDay(activeUser.id, item);
+        }
+      }
+      if (!cancelled) setCloudSynced(true);
+    };
+
+    syncWithCloud();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUser, authCfg.hasSupabase, entries.length]);
+
+  const handleUserAuthenticated = useCallback((user: AppUserProfile | null) => {
+    setActiveUser(user);
+    if (user) {
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(SESSION_USER_KEY);
+      setCloudSynced(false);
+    }
+  }, []);
+
   const handleCreated = async (entry: DiaryEntry) => {
     await saveDay(entry);
+    if (activeUser && authCfg.hasSupabase) {
+      upsertCloudDay(activeUser.id, entry).catch(() => {});
+    }
     setEntries((prev) => {
       const exists = prev.some((e) => e.id === entry.id);
       if (exists) {
@@ -50,6 +140,9 @@ export function App() {
 
   const handleDelete = async (id: string) => {
     await deleteDay(id);
+    if (activeUser && authCfg.hasSupabase) {
+      deleteCloudDay(activeUser.id, id).catch(() => {});
+    }
     setEntries((prev) => prev.filter((e) => e.id !== id));
     setSelectedEntry(null);
     setView('archive');
@@ -64,7 +157,6 @@ export function App() {
     ? entries.findIndex((e) => e.id === selectedEntry.id)
     : -1;
 
-  // Активный источник цветовой ауры сайта: открытый день, наведённый день или 4 стихии
   const activeAuraEntry = selectedEntry ?? hoveredEntry;
   const auraColors = activeAuraEntry
     ? [
@@ -77,9 +169,11 @@ export function App() {
 
   const isDarkWorld = world === 'indigo';
 
-  return (
+  const content = (
     <div
-      className={`app-shell ${isDarkWorld ? 'theme-prism' : 'theme-editorial'} world-${world}`}
+      className={`app-shell ${
+        isDarkWorld ? 'theme-prism' : 'theme-editorial'
+      } world-${world}`}
       style={
         {
           '--aura-1': auraColors[0],
@@ -89,7 +183,6 @@ export function App() {
         } as React.CSSProperties
       }
     >
-      {/* Живое полноэкранное световое полотно (Canvas) вместо чёрного фона */}
       <BackdropCanvas world={world} activeColors={auraColors} />
       <div className="aurora-grid-overlay" aria-hidden="true" />
 
@@ -108,7 +201,9 @@ export function App() {
 
         <nav className="topnav">
           <button
-            className={`nav-btn ${view === 'archive' || view === 'folder' ? 'active' : ''}`}
+            className={`nav-btn ${
+              view === 'archive' || view === 'folder' ? 'active' : ''
+            }`}
             onClick={() => {
               setSelectedEntry(null);
               setView('archive');
@@ -138,21 +233,68 @@ export function App() {
           </button>
         </nav>
 
-        <button
-          type="button"
-          className="theme-switch-btn font-mono"
-          onClick={() => {
-            const idx = WORLD_LIST.findIndex((w) => w.id === world);
-            const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
-            setWorld(next.id);
-          }}
-          title="Переключить художественный мир фона (4 режима)"
-        >
-          <Palette size={14} />
-          <span>
-            {WORLD_LIST.find((w) => w.id === world)?.label ?? 'Turrell Dawn'}
-          </span>
-        </button>
+        <div className="topbar-right-cluster">
+          <button
+            type="button"
+            className="theme-switch-btn font-mono"
+            onClick={() => {
+              const idx = WORLD_LIST.findIndex((w) => w.id === world);
+              const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
+              setWorld(next.id);
+            }}
+            title="Переключить художественный мир фона"
+          >
+            <Palette size={14} />
+            <span>
+              {WORLD_LIST.find((w) => w.id === world)?.label ?? 'Velvet Indigo'}
+            </span>
+          </button>
+
+          {authCfg.hasClerk ? (
+            <ClerkBridge
+              hasSupabase={authCfg.hasSupabase}
+              onUserChange={handleUserAuthenticated}
+              onOpenKeysModal={() => setShowAuthModal(true)}
+            />
+          ) : activeUser ? (
+            <div className="user-pill-box">
+              <span className="user-badge font-mono">
+                <UserCheck size={13} />
+                {activeUser.fullName}
+              </span>
+              {authCfg.hasSupabase && (
+                <span
+                  className="cloud-sync-dot font-mono"
+                  title={
+                    cloudSynced
+                      ? 'Синхронизировано с Supabase'
+                      : 'Подключено к Supabase'
+                  }
+                >
+                  <Cloud size={12} />
+                  Supabase
+                </span>
+              )}
+              <button
+                type="button"
+                className="btn-ghost btn-icon-only"
+                onClick={() => handleUserAuthenticated(null)}
+                title="Выйти из аккаунта"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary btn-auth-compact"
+              onClick={() => setShowAuthModal(true)}
+            >
+              <UserPlus size={14} />
+              Регистрация / Вход
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="main-container">
@@ -255,10 +397,36 @@ export function App() {
 
       <footer className="app-footer font-mono">
         <span>GENESIS HACKATHON // ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
-        <span>4:5 POLYCHROME VISUAL SYSTEM</span>
+        <span>
+          {activeUser
+            ? `USER: ${activeUser.fullName.toUpperCase()} // CLERK & SUPABASE`
+            : '4:5 POLYCHROME VISUAL SYSTEM'}
+        </span>
       </footer>
+
+      {showAuthModal && (
+        <AuthModal
+          onSuccess={(user) => {
+            handleUserAuthenticated(user);
+            setShowAuthModal(false);
+          }}
+          onConfigSaved={() => {
+            setAuthCfg(getAuthConfig());
+            setShowAuthModal(false);
+          }}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
+
+  if (authCfg.hasClerk) {
+    return (
+      <ClerkProvider publishableKey={authCfg.clerkKey}>{content}</ClerkProvider>
+    );
+  }
+
+  return content;
 }
 
 export default App;
