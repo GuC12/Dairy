@@ -36,6 +36,7 @@ import { AuthModal } from './components/AuthModal';
 import { ClerkBridge } from './components/ClerkBridge';
 import { ProfileModal } from './components/ProfileModal';
 import { WelcomeLanding } from './components/WelcomeLanding';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
@@ -75,11 +76,15 @@ export function App() {
   const clerkSignOutRef = useRef<(() => Promise<void>) | null>(null);
 
   const geminiApiKey = useMemo(() => {
-    return (
-      (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ||
-      localStorage.getItem('atmos_gemini_api_key')?.trim() ||
-      undefined
-    );
+    try {
+      return (
+        (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ||
+        localStorage.getItem('atmos_gemini_api_key')?.trim() ||
+        undefined
+      );
+    } catch {
+      return undefined;
+    }
   }, []);
 
   const currentUserId = activeUser?.id ?? null;
@@ -581,17 +586,19 @@ export function App() {
 
   if (authCfg.hasClerk) {
     return (
-      <ClerkProvider
-        publishableKey={authCfg.clerkKey}
-        localization={lang === 'ru' ? ruRU : enUS}
-        appearance={clerkAppearance}
-      >
-        <ClerkBridge
-          onUserChange={handleUserAuthenticated}
-          onRegisterSignOut={registerClerkSignOut}
-        />
-        {content}
-      </ClerkProvider>
+      <ErrorBoundary fallbackTitle="YourDiary // Автономный режим">
+        <ClerkProvider
+          publishableKey={authCfg.clerkKey}
+          localization={lang === 'ru' ? ruRU : enUS}
+          appearance={clerkAppearance}
+        >
+          <ClerkBridge
+            onUserChange={handleUserAuthenticated}
+            onRegisterSignOut={registerClerkSignOut}
+          />
+          {content}
+        </ClerkProvider>
+      </ErrorBoundary>
     );
   }
 

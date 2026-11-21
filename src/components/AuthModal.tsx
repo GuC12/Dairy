@@ -478,7 +478,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="text"
                       className="input-field auth-input-with-icon"
-                      placeholder="ivan"
+                      placeholder={t('Логин', 'Username')}
                       value={regUsername}
                       onChange={(e) => setRegUsername(e.target.value.replace(/^@+/, ''))}
                       autoComplete="username"
@@ -499,7 +499,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="email"
                       className="input-field auth-input-with-icon"
-                      placeholder="ivan@mail.com"
+                      placeholder={t('Адрес почты', 'Email address')}
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       autoComplete="email"
@@ -594,7 +594,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     inputMode="numeric"
                     maxLength={6}
                     className="input-field auth-code-input font-mono"
-                    placeholder="123456"
+                    placeholder="••••••"
                     value={regVerifyCode}
                     onChange={(e) => setRegVerifyCode(e.target.value.replace(/\D/g, ''))}
                     required
@@ -654,7 +654,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="text"
                   className="input-field auth-input-with-icon"
-                  placeholder="ivan"
+                  placeholder={t('Логин или почта', 'Username or email')}
                   value={loginIdentifier}
                   onChange={(e) => setLoginIdentifier(e.target.value.replace(/^@+/, ''))}
                   autoComplete="username"
@@ -739,7 +739,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="text"
                       className="input-field auth-input-with-icon"
-                      placeholder="ivan"
+                      placeholder={t('Логин или почта', 'Username or email')}
                       value={resetIdentifier}
                       onChange={(e) => setResetIdentifier(e.target.value.replace(/^@+/, ''))}
                       required
@@ -784,7 +784,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     inputMode="numeric"
                     maxLength={6}
                     className="input-field auth-code-input font-mono"
-                    placeholder="123456"
+                    placeholder="••••••"
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
                     required

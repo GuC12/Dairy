@@ -13,18 +13,42 @@ const STORAGE_KEYS = {
   SB_ANON: 'atmos_supabase_anon_key',
 };
 
+function safeStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
 export function getAuthConfig() {
   const clerkKey =
     (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined)?.trim() ||
-    localStorage.getItem(STORAGE_KEYS.CLERK_KEY)?.trim() ||
+    safeStorageGet(STORAGE_KEYS.CLERK_KEY)?.trim() ||
     DEFAULT_CLERK_PUB_KEY;
   const supabaseUrl =
     (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||
-    localStorage.getItem(STORAGE_KEYS.SB_URL)?.trim() ||
+    safeStorageGet(STORAGE_KEYS.SB_URL)?.trim() ||
     DEFAULT_SUPABASE_URL;
   const supabaseAnonKey =
     (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ||
-    localStorage.getItem(STORAGE_KEYS.SB_ANON)?.trim() ||
+    safeStorageGet(STORAGE_KEYS.SB_ANON)?.trim() ||
     DEFAULT_SUPABASE_ANON_KEY;
 
   return {
@@ -43,19 +67,19 @@ export function saveRuntimeAuthConfig(cfg: {
   supabaseAnonKey: string;
 }) {
   if (cfg.clerkKey.trim()) {
-    localStorage.setItem(STORAGE_KEYS.CLERK_KEY, cfg.clerkKey.trim());
+    safeStorageSet(STORAGE_KEYS.CLERK_KEY, cfg.clerkKey.trim());
   } else {
-    localStorage.removeItem(STORAGE_KEYS.CLERK_KEY);
+    safeStorageRemove(STORAGE_KEYS.CLERK_KEY);
   }
   if (cfg.supabaseUrl.trim()) {
-    localStorage.setItem(STORAGE_KEYS.SB_URL, cfg.supabaseUrl.trim());
+    safeStorageSet(STORAGE_KEYS.SB_URL, cfg.supabaseUrl.trim());
   } else {
-    localStorage.removeItem(STORAGE_KEYS.SB_URL);
+    safeStorageRemove(STORAGE_KEYS.SB_URL);
   }
   if (cfg.supabaseAnonKey.trim()) {
-    localStorage.setItem(STORAGE_KEYS.SB_ANON, cfg.supabaseAnonKey.trim());
+    safeStorageSet(STORAGE_KEYS.SB_ANON, cfg.supabaseAnonKey.trim());
   } else {
-    localStorage.removeItem(STORAGE_KEYS.SB_ANON);
+    safeStorageRemove(STORAGE_KEYS.SB_ANON);
   }
   cachedClient = null;
 }
