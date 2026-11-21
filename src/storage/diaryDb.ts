@@ -1,7 +1,7 @@
 import type { DiaryEntry } from '../types/diary';
 import { createSeedDays } from '../engine/seedDays';
 
-const DB_NAME = 'atmos_diary_db_v2';
+const DB_NAME = 'atmos_diary_db_v3';
 const DB_VERSION = 1;
 const STORE_NAME = 'days';
 

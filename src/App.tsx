@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { BookOpen, FolderKanban, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, FolderKanban, Palette, Plus } from 'lucide-react';
 import type { DiaryEntry } from './types/diary';
 import { deleteDay, loadAllDays, saveDay } from './storage/diaryDb';
 import { ArchiveFeed } from './components/ArchiveFeed';
@@ -9,6 +9,7 @@ import { VisualSystemPage } from './components/VisualSystemPage';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
+type GalleryTheme = 'prism' | 'editorial';
 
 export function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
@@ -16,6 +17,8 @@ export function App() {
   const [view, setView] = useState<TabView>('archive');
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
+  const [hoveredEntry, setHoveredEntry] = useState<DiaryEntry | null>(null);
+  const [theme, setTheme] = useState<GalleryTheme>('prism');
 
   useEffect(() => {
     loadAllDays().then((days) => {
@@ -50,8 +53,38 @@ export function App() {
       ? Math.max(...entries.map((e) => e.indexNumber)) + 1
       : 1;
 
+  // Активный источник цветовой ауры сайта: открытый день, наведённый день или 4 стихии
+  const activeAuraEntry = selectedEntry ?? hoveredEntry;
+  const auraColors = activeAuraEntry
+    ? [
+        activeAuraEntry.analysis.palette.accent,
+        activeAuraEntry.analysis.palette.secondary,
+        activeAuraEntry.photos[0]?.dominantColors[0] ?? '#38bdf8',
+        activeAuraEntry.photos[0]?.dominantColors[2] ?? '#a855f7',
+      ]
+    : ['#f59e0b', '#38bdf8', '#10b981', '#ec4899'];
+
   return (
-    <div className="app-shell bg-gallery-grid">
+    <div
+      className={`app-shell theme-${theme}`}
+      style={
+        {
+          '--aura-1': auraColors[0],
+          '--aura-2': auraColors[1],
+          '--aura-3': auraColors[2],
+          '--aura-4': auraColors[3],
+        } as React.CSSProperties
+      }
+    >
+      {/* Многоцветная живая фоновая аура, реагирующая на каждый день */}
+      <div className="chromatic-aurora-stage" aria-hidden="true">
+        <div className="aurora-orb orb-1" />
+        <div className="aurora-orb orb-2" />
+        <div className="aurora-orb orb-3" />
+        <div className="aurora-orb orb-4" />
+        <div className="aurora-grid-overlay" />
+      </div>
+
       <header className="topbar">
         <div
           className="brand"
@@ -61,8 +94,8 @@ export function App() {
           }}
         >
           <span className="brand-dot animate-pulse-dot" />
-          <span className="brand-name font-mono">ATMOS</span>
-          <span className="brand-sub font-mono">// ARTTECH DIARY</span>
+          <span className="brand-name font-mono">ATMOS_</span>
+          <span className="brand-sub font-mono">// GENESIS.ARTTECH</span>
         </div>
 
         <nav className="topnav">
@@ -97,13 +130,25 @@ export function App() {
           </button>
         </nav>
 
-        <div className="brand-sub font-mono">4:5 UNIFIED ARCHIVE</div>
+        <button
+          type="button"
+          className="theme-switch-btn font-mono"
+          onClick={() =>
+            setTheme((prev) => (prev === 'prism' ? 'editorial' : 'prism'))
+          }
+          title="Переключить атмосферу галереи"
+        >
+          <Palette size={14} />
+          <span>
+            {theme === 'prism' ? 'Chromatic Prism' : 'Genesis Paper'}
+          </span>
+        </button>
       </header>
 
       <main className="main-container">
         {isLoading ? (
           <div className="loading-state font-mono">
-            Инициализация архива и папок дней...
+            Синтез хроматического архива и папок дней...
           </div>
         ) : view === 'folder' && selectedEntry ? (
           <DayFolderView
@@ -142,13 +187,14 @@ export function App() {
               setView('create');
             }}
             onImport={handleCreated}
+            onHoverEntry={setHoveredEntry}
           />
         )}
       </main>
 
       <footer className="app-footer font-mono">
         <span>GENESIS HACKATHON // ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
-        <span>4:5 UNIFIED VISUAL SYSTEM</span>
+        <span>4:5 POLYCHROME VISUAL SYSTEM</span>
       </footer>
     </div>
   );

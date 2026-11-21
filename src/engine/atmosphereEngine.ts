@@ -135,43 +135,56 @@ function generateLocalFolderName(
 
 function buildPalette(
   movement: ArtMovementId,
-  photos: PhotoItem[]
+  photos: PhotoItem[],
+  timeOfDay: AtmosphereAnalysis['timeOfDay'] = 'день',
+  text = ''
 ): PaletteConfig {
   const basePhotoColor = photos[0]?.dominantColors[0] ?? '#8b6f56';
   const accentPhotoColor = photos[0]?.dominantColors[1] ?? '#c47b45';
+  const isEveningTwilight =
+    timeOfDay === 'вечер' || /(гроз|винил|сумерк|закат|свеч)/i.test(text);
 
   switch (movement) {
     case 'impressionism':
+      if (isEveningTwilight) {
+        return {
+          bg: mixHex('#291d3a', basePhotoColor, 0.26),
+          surface: '#36274b',
+          accent: mixHex('#f59e0b', accentPhotoColor, 0.35),
+          ink: '#fdf2e9',
+          secondary: mixHex('#ec4899', basePhotoColor, 0.35),
+        };
+      }
       return {
-        bg: mixHex('#f5ede0', basePhotoColor, 0.14),
-        surface: '#fbf6ed',
-        accent: mixHex('#c46a34', accentPhotoColor, 0.45),
-        ink: '#2d2218',
-        secondary: mixHex('#d99b52', basePhotoColor, 0.35),
+        bg: mixHex('#f7e3c4', basePhotoColor, 0.28),
+        surface: '#fdf5e6',
+        accent: mixHex('#d95b24', accentPhotoColor, 0.4),
+        ink: '#2b1d12',
+        secondary: mixHex('#eab308', basePhotoColor, 0.35),
       };
     case 'constructivism':
       return {
-        bg: mixHex('#18202c', basePhotoColor, 0.18),
-        surface: '#1f2836',
-        accent: mixHex('#e0533c', accentPhotoColor, 0.3),
-        ink: '#eef2f6',
-        secondary: '#627d98',
+        bg: mixHex('#0f1c36', basePhotoColor, 0.22),
+        surface: '#17294a',
+        accent: mixHex('#ff4757', accentPhotoColor, 0.25),
+        ink: '#f0f6ff',
+        secondary: '#38bdf8',
       };
     case 'wabi-sabi':
       return {
-        bg: mixHex('#e8e7e1', basePhotoColor, 0.12),
-        surface: '#f2f1ec',
-        accent: mixHex('#5f6b61', accentPhotoColor, 0.35),
-        ink: '#252824',
-        secondary: '#9aa097',
+        bg: mixHex('#d3e6e0', basePhotoColor, 0.25),
+        surface: '#e8f3ef',
+        accent: mixHex('#1d6f61', accentPhotoColor, 0.3),
+        ink: '#152925',
+        secondary: '#5ea89c',
       };
     case 'film-35mm':
       return {
-        bg: mixHex('#f0ebe1', basePhotoColor, 0.12),
-        surface: '#faf7f0',
-        accent: mixHex('#b85d38', accentPhotoColor, 0.4),
-        ink: '#1f1d1a',
-        secondary: mixHex('#6d7c74', basePhotoColor, 0.3),
+        bg: mixHex('#1b262c', basePhotoColor, 0.25),
+        surface: '#24333b',
+        accent: mixHex('#f59e0b', accentPhotoColor, 0.35),
+        ink: '#f5ebd9',
+        secondary: mixHex('#2dd4bf', basePhotoColor, 0.3),
       };
   }
 }
@@ -254,7 +267,7 @@ export function analyzeLocally(
     mood = 'bright-alive';
   }
 
-  const palette = buildPalette(movement, photos);
+  const palette = buildPalette(movement, photos, timeOfDay, text);
 
   const visualParams: VisualParams = {
     grain: movement === 'film-35mm' ? 0.55 : movement === 'impressionism' ? 0.32 : 0.14,
@@ -393,7 +406,7 @@ export async function analyzeDayAtmosphere(
         ? parsed.movement
         : base.movement;
 
-    const palette = buildPalette(movement, photos);
+    const palette = buildPalette(movement, photos, base.timeOfDay, text);
     const folderName =
       parsed.folderName && parsed.folderName.trim().length >= 5
         ? parsed.folderName.trim()
