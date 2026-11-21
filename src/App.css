@@ -2794,5 +2794,19 @@
   margin-top: 4px;
 }
 
+.clerk-embedded-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.yourdiary-clerk-root,
+.yourdiary-clerk-cardbox {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-shadow: none !important;
+}
+
+
 
 

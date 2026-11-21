@@ -11,7 +11,7 @@ import {
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { analyzeLocally } from '../engine/atmosphereEngine';
 import { MemoryCanvas } from './MemoryCanvas';
-import { useLanguage } from '../i18n/LanguageContext';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface WelcomeLandingProps {
   onOpenAuth: (mode: 'signin' | 'signup') => void;

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ClerkProvider } from '@clerk/clerk-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ClerkProvider } from '@clerk/react';
+import { enUS, ruRU } from '@clerk/localizations';
 import {
   BookOpen,
   Cloud,
@@ -13,7 +14,7 @@ import {
   User,
   UserPlus,
 } from 'lucide-react';
-import { useLanguage } from './i18n/LanguageContext';
+import { useLanguage } from './i18n/useLanguage';
 import type { DiaryEntry } from './types/diary';
 import { deleteDay, loadAllDays, saveDay } from './storage/diaryDb';
 import {
@@ -516,10 +517,6 @@ export function App() {
       {showAuthModal && (
         <AuthModal
           initialMode={authModalMode}
-          onSuccess={(user) => {
-            handleUserAuthenticated(user);
-            setShowAuthModal(false);
-          }}
           onClose={() => setShowAuthModal(false)}
         />
       )}
@@ -536,9 +533,50 @@ export function App() {
     </div>
   );
 
+  const clerkAppearance = useMemo(
+    () => ({
+      variables: isDarkWorld
+        ? {
+            colorPrimary: '#f59e0b',
+            colorBackground: '#1b173d',
+            colorText: '#fdfcff',
+            colorTextSecondary: '#c9c6e0',
+            colorInputBackground: '#120f2c',
+            colorInputText: '#fdfcff',
+            colorNeutral: '#fdfcff',
+            borderRadius: '14px',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+          }
+        : {
+            colorPrimary: '#e11d48',
+            colorBackground: '#fff9f3',
+            colorText: '#17161c',
+            colorTextSecondary: '#484654',
+            colorInputBackground: '#ffffff',
+            colorInputText: '#17161c',
+            colorNeutral: '#17161c',
+            borderRadius: '14px',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+          },
+      elements: {
+        rootBox: 'yourdiary-clerk-root',
+        cardBox: 'yourdiary-clerk-cardbox',
+        card: isDarkWorld
+          ? 'yourdiary-clerk-card-dark'
+          : 'yourdiary-clerk-card-light',
+        headerTitle: 'font-serif',
+      },
+    }),
+    [isDarkWorld]
+  );
+
   if (authCfg.hasClerk) {
     return (
-      <ClerkProvider publishableKey={authCfg.clerkKey}>
+      <ClerkProvider
+        publishableKey={authCfg.clerkKey}
+        localization={lang === 'ru' ? ruRU : enUS}
+        appearance={clerkAppearance}
+      >
         <ClerkBridge
           onUserChange={handleUserAuthenticated}
           onRegisterSignOut={registerClerkSignOut}

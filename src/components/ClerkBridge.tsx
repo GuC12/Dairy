@@ -1,13 +1,9 @@
 import React, { useEffect } from 'react';
-import { useClerk, useUser } from '@clerk/clerk-react';
+import { useClerk, useUser } from '@clerk/react';
 import {
   syncUserProfileToSupabase,
   type AppUserProfile,
 } from '../lib/supabaseClient';
-import {
-  getUsernameByEmail,
-  saveUsernameEmailMap,
-} from './AuthModal';
 
 interface ClerkBridgeProps {
   onUserChange: (user: AppUserProfile | null) => void;
@@ -35,21 +31,11 @@ export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
     if (!isLoaded) return;
     if (isSignedIn && user) {
       const email = user.primaryEmailAddress?.emailAddress ?? '';
-      const metaUsername =
-        typeof user.unsafeMetadata?.username === 'string'
-          ? user.unsafeMetadata.username
-          : '';
       const resolvedUsername =
         user.username ||
-        metaUsername ||
-        (email ? getUsernameByEmail(email) : null) ||
         user.firstName ||
         email.split('@')[0] ||
         'author';
-
-      if (email && resolvedUsername) {
-        saveUsernameEmailMap(resolvedUsername, email);
-      }
 
       const profile: AppUserProfile = {
         id: user.id,

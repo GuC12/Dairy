@@ -1,22 +1,7 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
-
-export type AppLang = 'ru' | 'en';
-
-interface LanguageContextValue {
-  lang: AppLang;
-  setLang: (lang: AppLang) => void;
-  toggleLang: () => void;
-  t: (ru: string, en: string) => string;
-}
+import React, { useCallback, useState } from 'react';
+import { LanguageContext, type AppLang } from './useLanguage';
 
 const LANG_STORAGE_KEY = 'yourdiary_app_lang';
-
-const LanguageContext = createContext<LanguageContextValue>({
-  lang: 'ru',
-  setLang: () => {},
-  toggleLang: () => {},
-  t: (ru) => ru,
-});
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -62,7 +47,3 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
     </LanguageContext.Provider>
   );
 };
-
-export function useLanguage(): LanguageContextValue {
-  return useContext(LanguageContext);
-}

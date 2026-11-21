@@ -18,7 +18,7 @@ import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
 import { TapestryModal } from './TapestryModal';
-import { useLanguage } from '../i18n/LanguageContext';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface ArchiveFeedProps {
   entries: DiaryEntry[];

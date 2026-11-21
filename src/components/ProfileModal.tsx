@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { DiaryEntry } from '../types/diary';
 import type { AppUserProfile } from '../lib/supabaseClient';
-import { useLanguage } from '../i18n/LanguageContext';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface ProfileModalProps {
   user: AppUserProfile;

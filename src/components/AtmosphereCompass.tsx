@@ -1,6 +1,6 @@
 import React from 'react';
 import type { DiaryEntry } from '../types/diary';
-import { useLanguage } from '../i18n/LanguageContext';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface AtmosphereCompassProps {
   entries: DiaryEntry[];
