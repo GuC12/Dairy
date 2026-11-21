@@ -11,6 +11,7 @@ import {
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { analyzeLocally } from '../engine/atmosphereEngine';
 import { MemoryCanvas } from './MemoryCanvas';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface WelcomeLandingProps {
   onOpenAuth: (mode: 'signin' | 'signup') => void;
@@ -19,9 +20,12 @@ interface WelcomeLandingProps {
 
 const PREVIEW_MODES: Array<{
   id: ArtMovementId;
-  label: string;
-  folder: string;
-  text: string;
+  labelRu: string;
+  labelEn: string;
+  folderRu: string;
+  folderEn: string;
+  textRu: string;
+  textEn: string;
   bpm: number;
   tonality: 'major' | 'minor';
   energy: number;
@@ -31,9 +35,14 @@ const PREVIEW_MODES: Array<{
 }> = [
   {
     id: 'impressionism',
-    label: 'Моне · Свет',
-    folder: 'Золотой час и тёплый разговор',
-    text: 'Гуляли по парку в золотых листьях, пили горячее какао и долго разговаривали.',
+    labelRu: 'Моне · Свет',
+    labelEn: 'Monet · Light',
+    folderRu: 'Золотой час и тёплый разговор',
+    folderEn: 'Golden Hour & Warm Conversation',
+    textRu:
+      'Гуляли по парку в золотых листьях, пили горячее какао и долго разговаривали.',
+    textEn:
+      'Walked through the park in golden autumn leaves, drank hot cocoa and talked for hours.',
     bpm: 78,
     tonality: 'major',
     energy: 0.36,
@@ -43,9 +52,14 @@ const PREVIEW_MODES: Array<{
   },
   {
     id: 'constructivism',
-    label: 'Кандинский · Ритм',
-    folder: 'Ночной фокус и ритм города',
-    text: 'Срочная сдача проекта, ночь в офисе, в наушниках плотная электронная музыка.',
+    labelRu: 'Кандинский · Ритм',
+    labelEn: 'Kandinsky · Rhythm',
+    folderRu: 'Ночной фокус и ритм города',
+    folderEn: 'Night Focus & City Pulse',
+    textRu:
+      'Срочная сдача проекта, ночь в офисе, в наушниках плотная электронная музыка.',
+    textEn:
+      'Urgent project deadline, late night at the office, dense electronic pulse in headphones.',
     bpm: 130,
     tonality: 'minor',
     energy: 0.86,
@@ -55,9 +69,14 @@ const PREVIEW_MODES: Array<{
   },
   {
     id: 'wabi-sabi',
-    label: 'Ваби-саби · Тишина',
-    folder: 'Большое небо и утренний туман',
-    text: 'Раннее утро в тумане у воды, тишина и медленное спокойное дыхание дня.',
+    labelRu: 'Ваби-саби · Тишина',
+    labelEn: 'Wabi-Sabi · Silence',
+    folderRu: 'Большое небо и утренний туман',
+    folderEn: 'Big Sky & Morning Fog',
+    textRu:
+      'Раннее утро в тумане у воды, тишина и медленное спокойное дыхание дня.',
+    textEn:
+      'Early morning mist by the water, silence and the slow, calm breath of the day.',
     bpm: 66,
     tonality: 'minor',
     energy: 0.24,
@@ -67,9 +86,14 @@ const PREVIEW_MODES: Array<{
   },
   {
     id: 'film-35mm',
-    label: 'Плёнка 35mm · Хроника',
-    folder: 'Вечерний трамвай и огни витрин',
-    text: 'Ехали вечером через весь город под дождём, огни витрин расплывались на стекле.',
+    labelRu: 'Плёнка 35мм · Хроника',
+    labelEn: '35mm Film · Chronicle',
+    folderRu: 'Вечерний трамвай и огни витрин',
+    folderEn: 'Evening Tram & Storefront Lights',
+    textRu:
+      'Ехали вечером через весь город под дождём, огни витрин расплывались на стекле.',
+    textEn:
+      'Rode across the city in the evening rain as storefront lights blurred on the window.',
     bpm: 104,
     tonality: 'major',
     energy: 0.58,
@@ -83,6 +107,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
   onOpenAuth,
   onOpenSystem,
 }) => {
+  const { lang, t } = useLanguage();
   const [modeIdx, setModeIdx] = useState(0);
 
   const demoEntry: DiaryEntry = useMemo(() => {
@@ -104,24 +129,27 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
       brightness: 0.55,
       contrast: 0.5,
     };
-    const analysis = analyzeLocally(m.text, [fakePhoto], music);
+    const analysis = analyzeLocally(m.textRu, [fakePhoto], music);
     return {
       id: 'welcome_demo',
       indexNumber: modeIdx + 1,
       createdAt: '2026-11-21T00:00:00.000Z',
-      dateLabel: 'Ваш день',
-      weather: 'Живой холст 4:5',
+      dateLabel: lang === 'en' ? 'Your Day' : 'Ваш день',
+      weather: lang === 'en' ? 'Live Canvas 4:5' : 'Живой холст 4:5',
       location: 'YourDiary',
-      text: m.text,
-      signature: 'Проведите курсором по картине →',
+      text: lang === 'en' ? m.textEn : m.textRu,
+      signature:
+        lang === 'en'
+          ? 'Move cursor across the painting →'
+          : 'Проведите курсором по картине →',
       photos: [],
       music,
       analysis: {
         ...analysis,
-        folderName: m.folder,
+        folderName: lang === 'en' ? m.folderEn : m.folderRu,
       },
     };
-  }, [modeIdx]);
+  }, [modeIdx, lang]);
 
   return (
     <div className="welcome-landing view-enter">
@@ -129,7 +157,10 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
         <div className="welcome-left">
           <div className="genesis-exe-bar font-mono">
             <span className="exe-title">
-              [ личный_дневник // архив_воспоминаний ]
+              {t(
+                '[ личный_дневник // архив_воспоминаний ]',
+                '[ yourdiary.exe // personal_vault ]'
+              )}
             </span>
             <div className="exe-squares">
               <span style={{ background: '#f59e0b' }} />
@@ -140,15 +171,17 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
           </div>
 
           <h1 className="font-serif welcome-title">
-            YourDiary — превратите ваш день в{' '}
-            <span className="hero-gradient-word">живое воспоминание</span>
+            {t('YourDiary — превратите ваш день в ', 'YourDiary — turn your day into a ')}{' '}
+            <span className="hero-gradient-word">
+              {t('живое воспоминание', 'living memory')}
+            </span>
           </h1>
 
           <p className="welcome-lead">
-            Фотографии в галерее хранят то, как выглядел день, но не то, как он
-            ощущался. <strong>YourDiary</strong> соединяет ваш рассказ, снимки и
-            песню дня в интерактивную картину <strong>4:5</strong> и сохраняет
-            её в вашем личном зашифрованном дневнике.
+            {t(
+              'Фотографии в галерее хранят то, как выглядел день, но не то, как он ощущался. YourDiary соединяет ваш рассказ, снимки и песню дня в интерактивную картину 4:5 и сохраняет её в вашем личном дневнике.',
+              'Photos in a gallery capture how a day looked, but not how it felt. YourDiary combines your story, photos, and song of the day into an interactive 4:5 painting stored in your private diary.'
+            )}
           </p>
 
           <div className="welcome-steps">
@@ -157,10 +190,17 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
                 <Sparkles size={18} />
               </div>
               <div>
-                <h3>01 // Текст и фотографии дня</h3>
+                <h3>
+                  {t(
+                    '01 // Текст и фотографии дня',
+                    '01 // Story & Photos of the Day'
+                  )}
+                </h3>
                 <p>
-                  Расскажите, как прошёл день (текстом или голосом), и
-                  приложите фотографии — система извлечёт их палитру и свет.
+                  {t(
+                    'Расскажите, как прошёл день (текстом или голосом), и приложите фотографии — система извлечёт их палитру и свет.',
+                    'Tell how your day went (by text or voice) and attach photos — the system extracts their color palette and light.'
+                  )}
                 </p>
               </div>
             </div>
@@ -170,10 +210,17 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
                 <Music size={18} />
               </div>
               <div>
-                <h3>02 // Песня и художественный стиль</h3>
+                <h3>
+                  {t(
+                    '02 // Песня и художественный стиль',
+                    '02 // Song & Artistic Style'
+                  )}
+                </h3>
                 <p>
-                  Музыка управляет ритмом анимации, мазками Моне, геометрией
-                  Кандинского, воздухом Ваби-саби или зерном 35mm плёнки.
+                  {t(
+                    'Музыка управляет ритмом анимации, мазками Моне, геометрией Кандинского, воздухом Ваби-саби или зерном 35мм плёнки.',
+                    'Music drives the animation rhythm, Monet brushstrokes, Kandinsky geometry, Wabi-Sabi whitespace, or 35mm film grain.'
+                  )}
                 </p>
               </div>
             </div>
@@ -183,10 +230,17 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
                 <FolderLock size={18} />
               </div>
               <div>
-                <h3>03 // Личный архив каждого аккаунта</h3>
+                <h3>
+                  {t(
+                    '03 // Личный архив каждого аккаунта',
+                    '03 // Private Archive for Every Account'
+                  )}
+                </h3>
                 <p>
-                  У каждого пользователя свой приватный дневник с облачной
-                  синхронизацией записей.
+                  {t(
+                    'У каждого пользователя свой приватный дневник с облачной синхронизацией записей.',
+                    'Every user gets their own isolated personal diary with cloud synchronization.'
+                  )}
                 </p>
               </div>
             </div>
@@ -199,7 +253,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
               onClick={() => onOpenAuth('signup')}
             >
               <UserPlus size={18} />
-              Создать свой дневник
+              {t('Создать свой дневник', 'Create Your Diary')}
             </button>
 
             <button
@@ -208,7 +262,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
               onClick={() => onOpenAuth('signin')}
             >
               <LogIn size={18} />
-              Войти в аккаунт
+              {t('Войти в аккаунт', 'Sign In')}
             </button>
 
             <button
@@ -217,7 +271,10 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
               onClick={onOpenSystem}
             >
               <BookOpen size={16} />
-              Как работает визуальная система
+              {t(
+                'Как работает визуальная система',
+                'How the Visual System Works'
+              )}
             </button>
           </div>
         </div>
@@ -226,9 +283,15 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
         <div className="welcome-right">
           <div className="welcome-showcase-card">
             <div className="showcase-top-bar font-mono">
-              <span>ИНТЕРАКТИВНЫЙ ПРЕДПРОСМОТР // 4:5</span>
+              <span>
+                {t(
+                  'ИНТЕРАКТИВНЫЙ ПРЕДПРОСМОТР // 4:5',
+                  'INTERACTIVE PREVIEW // 4:5'
+                )}
+              </span>
               <span className="showcase-hint">
-                <Disc3 size={13} className="spin-slow" /> Наведите курсор
+                <Disc3 size={13} className="spin-slow" />{' '}
+                {t('Наведите курсор', 'Hover cursor')}
               </span>
             </div>
 
@@ -258,7 +321,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
                     className="filter-dot"
                     style={{ backgroundColor: m.colors[0] }}
                   />
-                  {m.label}
+                  {lang === 'en' ? m.labelEn : m.labelRu}
                 </button>
               ))}
             </div>

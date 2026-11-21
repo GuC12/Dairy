@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { DiaryEntry } from '../types/diary';
 import type { AppUserProfile } from '../lib/supabaseClient';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ProfileModalProps {
   user: AppUserProfile;
@@ -30,6 +31,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onLogout,
   onClose,
 }) => {
+  const { t } = useLanguage();
   const totalPhotos = entries.reduce((s, e) => s + e.photos.length, 0);
   const avgBpm =
     entries.length > 0
@@ -38,9 +40,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         )
       : 0;
 
-  // Определяем преобладающий художественный стиль автора
   const dominantStyle = (() => {
-    if (entries.length === 0) return 'Ещё не определён';
+    if (entries.length === 0)
+      return t('Ещё не определён', 'Not determined yet');
     const counts = new Map<string, number>();
     for (const e of entries) {
       const title = e.analysis.movementTitle;
@@ -48,11 +50,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
     return (
       Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
-      'Импрессионизм'
+      t('Импрессионизм', 'Impressionism')
     );
   })();
 
-  // Собираем до 8 характерных цветов из дневника пользователя
   const personalColors = Array.from(
     new Set(
       entries.flatMap((e) => [
@@ -82,7 +83,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       >
         <div className="lightbox-head font-mono">
           <span className="tapestry-head-title">
-            <User size={16} /> ПРОФИЛЬ АВТОРА // YOURDIARY
+            <User size={16} />{' '}
+            {t('ПРОФИЛЬ АВТОРА // YOURDIARY', 'AUTHOR PROFILE // YOURDIARY')}
           </span>
           <button type="button" className="btn-ghost" onClick={onClose}>
             <X size={16} />
@@ -106,7 +108,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="profile-username font-serif">@{user.fullName}</div>
             {user.email && user.email.includes('@') && (
               <div className="profile-meta-line font-mono">
-                <span>Почта: {user.email}</span>
+                <span>
+                  {t('Почта', 'Email')}: {user.email}
+                </span>
               </div>
             )}
             <div className="profile-meta-line font-mono">
@@ -114,31 +118,32 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <span>·</span>
               <span className="profile-cloud-tag">
                 <Cloud size={12} />
-                {cloudSynced ? 'Облако синхронизировано' : 'Локальный + Облако'}
+                {cloudSynced
+                  ? t('Облако синхронизировано', 'Cloud Synced')
+                  : t('Локальный + Облако', 'Local + Cloud')}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Статистика личного дневника */}
         <div className="profile-stats-grid">
           <div className="profile-stat-box">
             <div className="profile-stat-label font-mono">
-              <FolderKanban size={13} /> ПАПОК ДНЕЙ
+              <FolderKanban size={13} /> {t('ПАПОК ДНЕЙ', 'DAY FOLDERS')}
             </div>
             <div className="profile-stat-val font-serif">{entries.length}</div>
           </div>
 
           <div className="profile-stat-box">
             <div className="profile-stat-label font-mono">
-              <ImageIcon size={13} /> ФОТОГРАФИЙ
+              <ImageIcon size={13} /> {t('ФОТОГРАФИЙ', 'PHOTOS')}
             </div>
             <div className="profile-stat-val font-serif">{totalPhotos}</div>
           </div>
 
           <div className="profile-stat-box">
             <div className="profile-stat-label font-mono">
-              <Music size={13} /> СРЕДНИЙ РИТМ
+              <Music size={13} /> {t('СРЕДНИЙ РИТМ', 'AVG RHYTHM')}
             </div>
             <div className="profile-stat-val font-serif">
               {avgBpm > 0 ? `${avgBpm} BPM` : '—'}
@@ -147,24 +152,32 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           <div className="profile-stat-box">
             <div className="profile-stat-label font-mono">
-              <Calendar size={13} /> ПОСЛЕДНЯЯ ЗАПИСЬ
+              <Calendar size={13} /> {t('ПОСЛЕДНЯЯ ЗАПИСЬ', 'LATEST ENTRY')}
             </div>
             <div className="profile-stat-val-sm font-mono">
-              {entries[0]?.dateLabel ?? 'Нет записей'}
+              {entries[0]?.dateLabel ?? t('Нет записей', 'No entries')}
             </div>
           </div>
         </div>
 
         <div className="profile-style-card">
           <div className="mini-label font-mono">
-            <Sparkles size={12} /> ПРЕОБЛАДАЮЩИЙ ХУДОЖЕСТВЕННЫЙ ЯЗЫК
+            <Sparkles size={12} />{' '}
+            {t(
+              'ПРЕОБЛАДАЮЩИЙ ХУДОЖЕСТВЕННЫЙ ЯЗЫК',
+              'DOMINANT ARTISTIC MOVEMENT'
+            )}
           </div>
           <div className="profile-style-name">{dominantStyle}</div>
 
           {personalColors.length > 0 && (
             <>
               <div className="mini-label font-mono" style={{ marginTop: 12 }}>
-                <Palette size={12} /> ЛИЧНАЯ ЦВЕТОВАЯ ПАЛИТРА ДНЕВНИКА
+                <Palette size={12} />{' '}
+                {t(
+                  'ЛИЧНАЯ ЦВЕТОВАЯ ПАЛИТРА ДНЕВНИКА',
+                  'PERSONAL DIARY COLOR PALETTE'
+                )}
               </div>
               <div className="profile-palette-bar">
                 {personalColors.map((hex, i) => (
@@ -188,20 +201,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               onClick={handleBackup}
             >
               <Download size={15} />
-              Скачать архив (.json)
+              {t('Скачать архив (.JSON)', 'Download Backup (.JSON)')}
             </button>
           )}
 
           <button
             type="button"
-            className="btn-primary btn-logout-danger"
-            onClick={() => {
-              onLogout();
-              onClose();
-            }}
+            className="btn-logout-danger"
+            onClick={onLogout}
           >
             <LogOut size={15} />
-            Выйти из аккаунта
+            {t('Выйти из аккаунта', 'Sign Out')}
           </button>
         </div>
       </div>

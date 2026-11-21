@@ -4,6 +4,7 @@ import {
   BookOpen,
   Cloud,
   FolderKanban,
+  Globe,
   LogIn,
   LogOut,
   Palette,
@@ -12,6 +13,7 @@ import {
   User,
   UserPlus,
 } from 'lucide-react';
+import { useLanguage } from './i18n/LanguageContext';
 import type { DiaryEntry } from './types/diary';
 import { deleteDay, loadAllDays, saveDay } from './storage/diaryDb';
 import {
@@ -37,14 +39,15 @@ import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
 
-const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
-  { id: 'indigo', label: 'Бархатный Индиго' },
-  { id: 'turrell', label: 'Рассвет Таррелла' },
+const WORLD_LIST: Array<{ id: WorldThemeId; ru: string; en: string }> = [
+  { id: 'indigo', ru: 'Бархатный Индиго', en: 'Velvet Indigo' },
+  { id: 'turrell', ru: 'Рассвет Таррелла', en: 'Turrell Dawn' },
 ];
 
 const SESSION_USER_KEY = 'yourdiary_active_session_user';
 
 export function App() {
+  const { lang, toggleLang, t } = useLanguage();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<TabView>('archive');
@@ -231,7 +234,7 @@ export function App() {
           <span className="brand-dot animate-pulse-dot" />
           <span className="brand-name font-mono">YourDiary</span>
           <span className="brand-sub font-mono">
-            // ЛИЧНЫЙ АРХИВ ВОСПОМИНАНИЙ
+            {t('// ЛИЧНЫЙ АРХИВ ВОСПОМИНАНИЙ', '// PERSONAL MEMORY VAULT')}
           </span>
         </div>
 
@@ -248,7 +251,7 @@ export function App() {
                 }}
               >
                 <FolderKanban size={15} />
-                Мой дневник ({entries.length})
+                {t('Мой дневник', 'My Diary')} ({entries.length})
               </button>
 
               <button
@@ -259,7 +262,7 @@ export function App() {
                 }}
               >
                 <Plus size={15} />
-                Новый день
+                {t('Новый день', 'New Day')}
               </button>
             </>
           ) : (
@@ -267,7 +270,8 @@ export function App() {
               className={`nav-btn ${view === 'archive' ? 'active' : ''}`}
               onClick={() => setView('archive')}
             >
-              <Sparkles size={15} />О проекте YourDiary
+              <Sparkles size={15} />
+              {t('О проекте YourDiary', 'About YourDiary')}
             </button>
           )}
 
@@ -276,11 +280,24 @@ export function App() {
             onClick={() => setView('system')}
           >
             <BookOpen size={15} />
-            Визуальная система
+            {t('Визуальная система', 'Visual System')}
           </button>
         </nav>
 
         <div className="topbar-right-cluster">
+          <button
+            type="button"
+            className="theme-switch-btn font-mono"
+            onClick={toggleLang}
+            title={t(
+              'Переключить язык сайта (Русский / English)',
+              'Switch website language (Russian / English)'
+            )}
+          >
+            <Globe size={14} />
+            <span>{lang === 'ru' ? 'RU / EN' : 'EN / RU'}</span>
+          </button>
+
           <button
             type="button"
             className="theme-switch-btn font-mono"
@@ -289,12 +306,14 @@ export function App() {
               const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
               setWorld(next.id);
             }}
-            title="Переключить тему оформления сайта"
+            title={t('Переключить тему оформления сайта', 'Switch website theme')}
           >
             <Palette size={14} />
             <span>
-              {WORLD_LIST.find((w) => w.id === world)?.label ??
-                'Бархатный Индиго'}
+              {t(
+                WORLD_LIST.find((w) => w.id === world)?.ru ?? 'Бархатный Индиго',
+                WORLD_LIST.find((w) => w.id === world)?.en ?? 'Velvet Indigo'
+              )}
             </span>
           </button>
 
@@ -304,7 +323,10 @@ export function App() {
                 type="button"
                 className="btn-ghost btn-auth-compact"
                 onClick={() => setShowProfileModal(true)}
-                title="Открыть профиль и статистику дневника"
+                title={t(
+                  'Открыть профиль и статистику дневника',
+                  'Open profile and diary stats'
+                )}
               >
                 <User size={14} />
                 <span>@{activeUser.fullName}</span>
@@ -315,8 +337,8 @@ export function App() {
                   className="cloud-sync-dot font-mono"
                   title={
                     cloudSynced
-                      ? 'Синхронизировано с Supabase'
-                      : 'Подключено к Supabase'
+                      ? t('Синхронизировано с Supabase', 'Synced with Supabase')
+                      : t('Подключено к Supabase', 'Connected to Supabase')
                   }
                 >
                   <Cloud size={12} />
@@ -327,10 +349,10 @@ export function App() {
                 type="button"
                 className="btn-ghost btn-auth-compact"
                 onClick={handleLogout}
-                title="Выйти из аккаунта"
+                title={t('Выйти из аккаунта', 'Sign Out')}
               >
                 <LogOut size={14} />
-                <span>Выйти</span>
+                <span>{t('Выйти', 'Sign Out')}</span>
               </button>
             </div>
           ) : (
@@ -344,7 +366,7 @@ export function App() {
                 }}
               >
                 <LogIn size={14} />
-                Вход
+                {t('Вход', 'Sign In')}
               </button>
               <button
                 type="button"
@@ -355,7 +377,7 @@ export function App() {
                 }}
               >
                 <UserPlus size={14} />
-                Регистрация
+                {t('Регистрация', 'Sign Up')}
               </button>
             </div>
           )}
@@ -375,7 +397,10 @@ export function App() {
           />
         ) : isLoading ? (
           <div className="loading-state font-mono">
-            Загрузка вашего личного дневника...
+            {t(
+              'Загрузка вашего личного дневника...',
+              'Loading your personal diary...'
+            )}
           </div>
         ) : view === 'folder' && selectedEntry ? (
           <DayFolderView
@@ -470,12 +495,21 @@ export function App() {
 
       <footer className="app-footer font-mono">
         <span>
-          YOURDIARY // ИСКУССТВО И ТЕХНОЛОГИИ // СДЕЛАТЬ НЕВИДИМОЕ ВИДИМЫМ
+          {t(
+            'YOURDIARY // ИСКУССТВО И ТЕХНОЛОГИИ // СДЕЛАТЬ НЕВИДИМОЕ ВИДИМЫМ',
+            'YOURDIARY // GENESIS ARTTECH // MAKE THE INVISIBLE VISIBLE_'
+          )}
         </span>
         <span>
           {activeUser
-            ? `ВЛАДЕЛЕЦ ДНЕВНИКА: @${activeUser.fullName.toUpperCase()}`
-            : 'ЕДИНАЯ ВИЗУАЛЬНАЯ СИСТЕМА 4:5'}
+            ? t(
+                `ВЛАДЕЛЕЦ ДНЕВНИКА: @${activeUser.fullName.toUpperCase()}`,
+                `DIARY OWNER: @${activeUser.fullName.toUpperCase()}`
+              )
+            : t(
+                'ЕДИНАЯ ВИЗУАЛЬНАЯ СИСТЕМА 4:5',
+                '4:5 PERSONAL VISUAL SYSTEM'
+              )}
         </span>
       </footer>
 

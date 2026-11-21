@@ -18,6 +18,7 @@ import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
 import { TapestryModal } from './TapestryModal';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ArchiveFeedProps {
   entries: DiaryEntry[];
@@ -57,6 +58,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   onImport,
   onHoverEntry,
 }) => {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | ArtMovementId>('all');
   const [layoutMode, setLayoutMode] = useState<'posters' | 'editorial'>(
@@ -141,7 +143,10 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
         <div className="hero-left-col">
           <div className="genesis-exe-bar font-mono">
             <span className="exe-title">
-              [ личный_дневник // архив_воспоминаний ]
+              {t(
+                '[ личный_дневник // архив_воспоминаний ]',
+                '[ yourdiary.exe // personal_archive ]'
+              )}
             </span>
             <div className="exe-squares">
               <span style={{ background: '#f59e0b' }} />
@@ -152,15 +157,18 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           </div>
 
           <h1 className="font-serif hero-title">
-            Сделать <span className="hero-gradient-word">Невидимое</span>{' '}
-            <em>Видимым_</em>
+            {t('Сделать ', 'Make the ')}{' '}
+            <span className="hero-gradient-word">
+              {t('Невидимое', 'Invisible')}
+            </span>{' '}
+            <em>{t('Видимым_', 'Visible_')}</em>
           </h1>
 
           <p className="hero-subtitle">
-            Личный дневник-галерея, превращающий текст, фотографии и музыку в
-            живое воспоминание. Каждая страница подчиняется единой модульной
-            сетке <strong>4:5</strong>, но обретает собственный цвет, мазок и
-            звуковой пульс.
+            {t(
+              'Личный дневник-галерея, превращающий текст, фотографии и музыку в живое воспоминание. Каждая страница подчиняется единой модульной сетке 4:5, но обретает собственный цвет, мазок и звуковой пульс.',
+              'A personal gallery diary turning your story, photos, and music into a living memory. Every page follows a unified 4:5 grid while taking on its own color, brushstroke, and sonic pulse.'
+            )}
           </p>
 
           {/* Хроматическая ДНК всего дневника + аналитическая сводка */}
@@ -231,7 +239,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           <div className="hero-cta-row">
             <button className="btn-primary btn-large" onClick={onCreateNew}>
               <Plus size={18} />
-              Записать новый день
+              {t('Записать новый день', 'Record New Day')}
             </button>
           </div>
           <div className="hero-secondary-row">
@@ -244,10 +252,13 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                 onStartReel();
               }}
               disabled={entries.length === 0}
-              title="Автоматически проиграть все дни дневника как фильм"
+              title={t(
+                'Автоматически проиграть все дни дневника как фильм',
+                'Play all diary days automatically as a film reel'
+              )}
             >
               <Film size={15} />
-              Фильм
+              {t('Фильм', 'Film Reel')}
             </button>
 
             <button
@@ -259,10 +270,13 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                 onOpenRandomCapsule();
               }}
               disabled={entries.length === 0}
-              title="Открыть случайное воспоминание в полноэкранном режиме погружения"
+              title={t(
+                'Открыть случайное воспоминание в полноэкранном режиме погружения',
+                'Open a random memory in full-screen immersion mode'
+              )}
             >
               <Sparkles size={15} />
-              Капсула
+              {t('Капсула', 'Capsule')}
             </button>
 
             <button
@@ -270,28 +284,37 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
               className="btn-secondary"
               onClick={() => setShowTapestry(true)}
               disabled={entries.length === 0}
-              title="Сплести все дни дневника в единый постер-гобелен сезона"
+              title={t(
+                'Сплести все дни дневника в единый постер-гобелен сезона',
+                'Weave all diary days into a single season tapestry poster'
+              )}
             >
               <Sparkles size={15} />
-              Гобелен
+              {t('Гобелен', 'Tapestry')}
             </button>
 
             <button
               type="button"
               className="btn-secondary"
               onClick={handleExportAll}
-              title="Скачать полный бэкап всего дневника (.json)"
+              title={t(
+                'Скачать полный бэкап всего дневника (.json)',
+                'Download full diary backup (.json)'
+              )}
             >
               <Download size={15} />
-              Бэкап
+              {t('Бэкап', 'Backup')}
             </button>
 
             <label
               className="btn-secondary"
-              title="Загрузить папку дня или полный бэкап (.json)"
+              title={t(
+                'Загрузить папку дня или полный бэкап (.json)',
+                'Import a day folder or full backup (.json)'
+              )}
             >
               <Upload size={15} />
-              Импорт
+              {t('Импорт', 'Import')}
               <input
                 type="file"
                 accept=".json,.atmos.json,application/json"
@@ -358,19 +381,29 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           {entries.length === 0 ? (
             <>
               <h3 className="font-serif" style={{ fontSize: 28, margin: '0 0 8px' }}>
-                Ваш личный дневник готов к первой записи
+                {t(
+                  'Ваш личный дневник готов к первой записи',
+                  'Your personal diary is ready for its first entry'
+                )}
               </h3>
               <p style={{ margin: '0 0 18px' }}>
-                У каждого аккаунта свой изолированный архив воспоминаний.
-                Расскажите, как прошёл ваш день, добавьте фотографии и песню.
+                {t(
+                  'У каждого аккаунта свой изолированный архив воспоминаний. Расскажите, как прошёл ваш день, добавьте фотографии и песню.',
+                  'Every account has its own private memory archive. Share how your day went, add photos and a song.'
+                )}
               </p>
               <button className="btn-primary btn-large" onClick={onCreateNew}>
                 <Plus size={18} />
-                Записать свой первый день
+                {t('Записать свой первый день', 'Record Your First Day')}
               </button>
             </>
           ) : (
-            <p>По вашему запросу папок не найдено.</p>
+            <p>
+              {t(
+                'По вашему запросу папок не найдено.',
+                'No day folders matched your search.'
+              )}
+            </p>
           )}
         </div>
       ) : (

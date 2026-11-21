@@ -1,5 +1,6 @@
 import React from 'react';
 import type { DiaryEntry } from '../types/diary';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface AtmosphereCompassProps {
   entries: DiaryEntry[];
@@ -14,34 +15,38 @@ export const AtmosphereCompass: React.FC<AtmosphereCompassProps> = ({
   onSelect,
   compact = false,
 }) => {
+  const { t } = useLanguage();
+
   return (
     <div className={`compass-card ${compact ? 'compass-compact' : ''}`}>
       <div className="compass-head font-mono">
-        <span>КОМПАС АТМОСФЕРЫ // НАСТРОЕНИЕ × ЭНЕРГИЯ</span>
+        <span>
+          {t(
+            'КОМПАС АТМОСФЕРЫ // НАСТРОЕНИЕ × ЭНЕРГИЯ',
+            'ATMOSPHERE COMPASS // VALENCE × ENERGY'
+          )}
+        </span>
       </div>
 
       <div className="compass-plane">
-        {/* Квадранты */}
         <div className="compass-axis-x" />
         <div className="compass-axis-y" />
 
         <span className="compass-quadrant q-tl font-mono">
-          Кандинский · Фокус
+          {t('Кандинский · Фокус', 'Kandinsky · Focus')}
         </span>
         <span className="compass-quadrant q-tr font-mono">
-          Плёнка 35mm · Драйв
+          {t('Плёнка 35мм · Драйв', '35mm Film · Drive')}
         </span>
         <span className="compass-quadrant q-bl font-mono">
-          Ваби-саби · Тишина
+          {t('Ваби-саби · Тишина', 'Wabi-Sabi · Silence')}
         </span>
         <span className="compass-quadrant q-br font-mono">
-          Моне · Тепло
+          {t('Моне · Тепло', 'Monet · Warmth')}
         </span>
 
         {entries.map((entry) => {
-          // valence: -1..1 -> 8%..92%
           const leftPct = 50 + entry.analysis.valence * 40;
-          // arousal: 0..1 -> bottom 10%..90% (top = 90%..10%)
           const topPct = 88 - entry.analysis.arousal * 76;
           const isActive = entry.id === activeId;
 

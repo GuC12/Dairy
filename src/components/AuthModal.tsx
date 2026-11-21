@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSignIn, useSignUp } from '@clerk/clerk-react';
+import { useClerk, useSignIn, useSignUp } from '@clerk/clerk-react';
 import {
   ArrowLeft,
   KeyRound,
@@ -10,7 +10,12 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import type { AppUserProfile } from '../lib/supabaseClient';
+import {
+  getSupabaseClient,
+  syncUserProfileToSupabase,
+  type AppUserProfile,
+} from '../lib/supabaseClient';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface AuthModalProps {
   initialMode?: 'signin' | 'signup';
@@ -22,18 +27,100 @@ interface ClerkErrorItem {
   code?: string;
   message?: string;
   longMessage?: string;
+  meta?: { paramName?: string };
 }
 
-function translateClerkError(err: unknown): string {
+export const USERNAME_MAP_KEY = 'yourdiary_username_email_map_v1';
+
+export interface UsernameEmailRecord {
+  username: string;
+  email: string;
+}
+
+export function saveUsernameEmailMap(username: string, email: string): void {
+  try {
+    const cleanU = username.trim().toLowerCase();
+    const cleanE = email.trim().toLowerCase();
+    if (!cleanU || !cleanE) return;
+    const raw = localStorage.getItem(USERNAME_MAP_KEY);
+    const list: UsernameEmailRecord[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter(
+      (r) => r.username !== cleanU && r.email !== cleanE
+    );
+    filtered.push({ username: cleanU, email: cleanE });
+    localStorage.setItem(USERNAME_MAP_KEY, JSON.stringify(filtered));
+  } catch {
+    // ignore
+  }
+}
+
+export function getUsernameByEmail(email: string): string | null {
+  try {
+    const cleanE = email.trim().toLowerCase();
+    const raw = localStorage.getItem(USERNAME_MAP_KEY);
+    const list: UsernameEmailRecord[] = raw ? JSON.parse(raw) : [];
+    return list.find((r) => r.email === cleanE)?.username ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveEmailFromIdentifier(
+  identifier: string
+): Promise<string> {
+  const clean = identifier.trim().toLowerCase();
+  if (clean.includes('@')) return clean;
+
+  try {
+    const raw = localStorage.getItem(USERNAME_MAP_KEY);
+    const list: UsernameEmailRecord[] = raw ? JSON.parse(raw) : [];
+    const foundLocal = list.find((r) => r.username === clean);
+    if (foundLocal) return foundLocal.email;
+  } catch {
+    // ignore
+  }
+
+  const sb = getSupabaseClient();
+  if (sb) {
+    try {
+      const { data } = await sb
+        .from('profiles')
+        .select('email, full_name')
+        .ilike('full_name', clean)
+        .maybeSingle();
+      if (data?.email && data.email.includes('@')) {
+        saveUsernameEmailMap(clean, data.email);
+        return data.email.toLowerCase();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return clean;
+}
+
+function translateClerkError(err: unknown, lang: 'ru' | 'en'): string {
   const clerkErr = err as { errors?: ClerkErrorItem[]; message?: string };
   const first = clerkErr?.errors?.[0];
   const code = first?.code ?? '';
-  const raw = (first?.longMessage || first?.message || clerkErr?.message || '').toLowerCase();
+  const rawMessage = first?.longMessage || first?.message || clerkErr?.message || '';
+  const raw = rawMessage.toLowerCase();
 
-  if (code === 'form_identifier_not_found' || raw.includes("couldn't find your account")) {
+  if (lang === 'en') {
+    return rawMessage || 'Could not complete request. Please check your details.';
+  }
+
+  if (
+    code === 'form_identifier_not_found' ||
+    raw.includes("couldn't find your account")
+  ) {
     return 'Аккаунт с такой почтой или логином не найден. Проверьте данные или зарегистрируйтесь.';
   }
-  if (code === 'form_password_incorrect' || raw.includes('password is incorrect')) {
+  if (
+    code === 'form_password_incorrect' ||
+    raw.includes('password is incorrect')
+  ) {
     return 'Неверный пароль. Попробуйте ещё раз или нажмите «Забыл пароль».';
   }
   if (code === 'form_identifier_exists') {
@@ -43,41 +130,66 @@ function translateClerkError(err: unknown): string {
     return 'Эта электронная почта уже зарегистрирована. Перейдите во вкладку «Вход» или «Забыл пароль».';
   }
   if (code === 'form_password_pwned' || raw.includes('data breach')) {
-    return 'Этот пароль слишком простой. Придумайте более надёжный пароль (минимум 8 символов с буквами и цифрами).';
+    return 'Этот пароль слишком простой (встречается в публичных базах). Придумайте более надёжный пароль (например, добавьте цифры и заглавные буквы).';
   }
-  if (code === 'form_password_length_too_short' || raw.includes('8 characters')) {
+  if (
+    code === 'form_password_length_too_short' ||
+    raw.includes('8 characters')
+  ) {
     return 'Пароль должен содержать не менее 8 символов.';
   }
-  if (code === 'form_code_incorrect' || raw.includes('incorrect code') || raw.includes('is incorrect')) {
+  if (
+    code === 'form_code_incorrect' ||
+    raw.includes('incorrect code') ||
+    raw.includes('is incorrect')
+  ) {
     return 'Неверный код из письма. Проверьте цифры и попробуйте снова.';
   }
   if (code === 'verification_expired' || raw.includes('expired')) {
     return 'Срок действия кода истёк. Нажмите «Отправить код повторно».';
   }
-  if (code === 'form_username_invalid_character' || raw.includes('username')) {
-    return 'Логин может содержать только латинские буквы, цифры, дефис или нижнее подчёркивание (от 4 символов).';
+  if (
+    code === 'form_username_invalid_character' ||
+    code === 'form_username_invalid_length' ||
+    raw.includes('username')
+  ) {
+    return 'Логин должен быть от 4 до 32 символов и содержать только латинские буквы, цифры, дефис или нижнее подчёркивание.';
   }
   if (code === 'form_param_format_invalid') {
-    return 'Проверьте правильность введённой электронной почты и логина.';
+    return 'Проверьте правильность введённого адреса электронной почты.';
   }
   if (code === 'too_many_requests' || raw.includes('too many')) {
     return 'Слишком много попыток. Подождите минуту и попробуйте снова.';
   }
-  return 'Не удалось выполнить запрос. Проверьте введённые данные и попробуйте ещё раз.';
+  if (code === 'captcha_invalid' || code === 'captcha_missing_token' || raw.includes('captcha')) {
+    return 'Проверка безопасности Clerk (CAPTCHA). Подождите секунду и нажмите кнопку ещё раз.';
+  }
+  return rawMessage
+    ? `Ошибка проверки: ${rawMessage}`
+    : 'Не удалось выполнить запрос. Проверьте введённые данные.';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'signup',
+  onSuccess,
   onClose,
 }) => {
-  const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
-  const { isLoaded: signInLoaded, signIn, setActive: setActiveSignIn } = useSignIn();
+  const { lang, t } = useLanguage();
+  const clerk = useClerk();
+  const {
+    isLoaded: signUpLoaded,
+    signUp,
+    setActive: setActiveSignUp,
+  } = useSignUp();
+  const {
+    isLoaded: signInLoaded,
+    signIn,
+    setActive: setActiveSignIn,
+  } = useSignIn();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(initialMode);
-
-  // Шаги регистрации: 'form' -> 'verify' (код с почты)
   const [signupStep, setSignupStep] = useState<'form' | 'verify'>('form');
-  // Шаги сброса пароля: 'request' (ввод почты) -> 'confirm' (код с почты + новый пароль)
+  const [signinStep, setSigninStep] = useState<'form' | 'verify2fa'>('form');
   const [resetStep, setResetStep] = useState<'request' | 'confirm'>('request');
 
   const [username, setUsername] = useState('');
@@ -96,39 +208,133 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg(null);
   };
 
-  // 1. Отправка формы регистрации (Логин + Email + Пароль -> отправка кода на почту)
+  // Завершение входа/регистрации и синхронизация с Supabase
+  const finalizeClerkLogin = async (
+    sessionId: string | null,
+    setActiveFn: (params: { session: string }) => Promise<void>,
+    fallbackEmail: string,
+    preferredUsername?: string
+  ) => {
+    if (sessionId) {
+      await setActiveFn({ session: sessionId });
+    }
+    const cleanE = fallbackEmail.trim().toLowerCase();
+    const cleanU =
+      preferredUsername?.trim().toLowerCase() ||
+      getUsernameByEmail(cleanE) ||
+      cleanE.split('@')[0] ||
+      'author';
+
+    if (cleanE && cleanU) {
+      saveUsernameEmailMap(cleanU, cleanE);
+    }
+
+    const clerkUserId = clerk.user?.id || `clerk_${cleanE || cleanU}`;
+    const profile: AppUserProfile = {
+      id: clerkUserId,
+      email: cleanE,
+      fullName: cleanU,
+      provider: 'clerk',
+    };
+    await syncUserProfileToSupabase(profile).catch(() => {});
+    onSuccess(profile);
+    onClose();
+  };
+
+  // 1. РЕГИСТРАЦИЯ: Шаг 1 (Логин + Email + Пароль -> отправка кода на почту)
   const handleSignUpStart = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
     if (!signUpLoaded || !signUp) return;
 
-    const cleanUser = username.trim().toLowerCase();
+    const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '_');
     const cleanEmail = email.trim().toLowerCase();
 
     if (cleanUser.length < 3) {
-      setError('Логин должен содержать минимум 3 символа (латинские буквы, цифры или _).');
+      setError(
+        t(
+          'Логин должен содержать минимум 3 символа (латинские буквы, цифры или _).',
+          'Username must be at least 3 characters.'
+        )
+      );
       return;
     }
     if (!cleanEmail.includes('@')) {
-      setError('Введите корректный адрес электронной почты.');
+      setError(
+        t(
+          'Введите корректный адрес электронной почты.',
+          'Please enter a valid email address.'
+        )
+      );
       return;
     }
     if (password.length < 8) {
-      setError('Пароль должен содержать минимум 8 символов.');
+      setError(
+        t(
+          'Пароль должен содержать минимум 8 символов.',
+          'Password must be at least 8 characters.'
+        )
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await signUp.create({
-        username: cleanUser,
-        emailAddress: cleanEmail,
-        password,
-      });
+      // Если осталась старая сессия Clerk, сначала закрываем её
+      if (clerk.session) {
+        await clerk.signOut();
+      }
+
+      saveUsernameEmailMap(cleanUser, cleanEmail);
+
+      let res;
+      try {
+        // Сначала пробуем передать username напрямую в Clerk
+        res = await signUp.create({
+          username: cleanUser,
+          emailAddress: cleanEmail,
+          password,
+          unsafeMetadata: { username: cleanUser },
+        });
+      } catch (firstErr) {
+        const cErr = firstErr as { errors?: ClerkErrorItem[] };
+        const errCode = cErr?.errors?.[0]?.code ?? '';
+        const paramName = cErr?.errors?.[0]?.meta?.paramName ?? '';
+        // Если в настройках Clerk поле username отключено или требует только email+password:
+        if (
+          errCode === 'form_param_unknown' ||
+          paramName === 'username' ||
+          errCode === 'form_username_invalid_length'
+        ) {
+          res = await signUp.create({
+            emailAddress: cleanEmail,
+            password,
+            unsafeMetadata: { username: cleanUser },
+          });
+        } else {
+          throw firstErr;
+        }
+      }
+
+      // Если в Clerk обязательны first_name / last_name — заполняем их автоматически из логина
+      if (
+        res.status === 'missing_requirements' &&
+        (res.missingFields.includes('first_name') ||
+          res.missingFields.includes('last_name'))
+      ) {
+        res = await signUp.update({
+          firstName: cleanUser,
+          lastName: 'YourDiary',
+        });
+      }
 
       if (res.status === 'complete' && res.createdSessionId) {
-        await setActiveSignUp({ session: res.createdSessionId });
-        onClose();
+        await finalizeClerkLogin(
+          res.createdSessionId,
+          setActiveSignUp,
+          cleanEmail,
+          cleanUser
+        );
         return;
       }
 
@@ -139,16 +345,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setCode('');
       setSignupStep('verify');
       setSuccessMsg(
-        `Код подтверждения отправлен на почту ${cleanEmail}. Введите его ниже.`
+        t(
+          `Код подтверждения отправлен на почту ${cleanEmail}. Введите его ниже.`,
+          `Verification code sent to ${cleanEmail}. Please enter it below.`
+        )
       );
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 2. Подтверждение кода из письма при регистрации
+  // 2. РЕГИСТРАЦИЯ: Шаг 2 (Подтверждение кода из письма)
   const handleSignUpVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
@@ -156,30 +365,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const cleanCode = code.trim();
     if (cleanCode.length < 6) {
-      setError('Введите 6-значный код из письма.');
+      setError(
+        t(
+          'Введите 6-значный код из письма.',
+          'Please enter the 6-digit code from the email.'
+        )
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await signUp.attemptEmailAddressVerification({
+      let res = await signUp.attemptEmailAddressVerification({
         code: cleanCode,
       });
 
+      // Если после верификации почты Clerk просит обязательное поле (например username/first_name)
+      if (res.status === 'missing_requirements') {
+        const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '_');
+        const updatePayload: Record<string, string> = {};
+        if (res.missingFields.includes('username')) {
+          updatePayload.username =
+            cleanUser.length >= 4 ? cleanUser : `${cleanUser}_user`;
+        }
+        if (res.missingFields.includes('first_name')) {
+          updatePayload.firstName = cleanUser;
+        }
+        if (res.missingFields.includes('last_name')) {
+          updatePayload.lastName = 'YourDiary';
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          res = await signUp.update(updatePayload);
+        }
+      }
+
       if (res.status === 'complete' && res.createdSessionId) {
-        await setActiveSignUp({ session: res.createdSessionId });
-        onClose();
+        await finalizeClerkLogin(
+          res.createdSessionId,
+          setActiveSignUp,
+          email,
+          username
+        );
       } else {
-        setError('Не удалось завершить подтверждение. Проверьте код из письма.');
+        setError(
+          t(
+            'Не удалось завершить подтверждение. Проверьте код из письма.',
+            'Could not complete verification. Please check the code.'
+          )
+        );
       }
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Повторная отправка кода при регистрации
   const handleResendSignUpCode = async () => {
     resetMessages();
     if (!signUpLoaded || !signUp) return;
@@ -188,83 +429,224 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signUp.prepareEmailAddressVerification({
         strategy: 'email_code',
       });
-      setSuccessMsg(`Новый код отправлен на ${email.trim()}.`);
+      setSuccessMsg(
+        t(
+          `Новый код отправлен на ${email.trim()}.`,
+          `A new code has been sent to ${email.trim()}.`
+        )
+      );
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 3. Вход по Почте или Логину + Паролю
+  // 3. ВХОД В АККАУНТ (Почта или Логин + Пароль)
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
     if (!signInLoaded || !signIn) return;
 
-    const cleanId = identifier.trim();
-    if (!cleanId) {
-      setError('Введите вашу электронную почту или логин.');
+    const rawId = identifier.trim();
+    if (!rawId) {
+      setError(
+        t(
+          'Введите вашу электронную почту или логин.',
+          'Please enter your email or username.'
+        )
+      );
       return;
     }
     if (!password) {
-      setError('Введите пароль.');
+      setError(t('Введите пароль.', 'Please enter your password.'));
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await signIn.create({
-        identifier: cleanId,
-        password,
-      });
+      if (clerk.session) {
+        await clerk.signOut();
+      }
+
+      // Если пользователь ввёл логин (без @), проверяем привязанную почту
+      const resolvedIdentifier = await resolveEmailFromIdentifier(rawId);
+
+      let res;
+      try {
+        res = await signIn.create({
+          identifier: rawId,
+          password,
+        });
+      } catch (firstErr) {
+        if (resolvedIdentifier !== rawId.toLowerCase()) {
+          res = await signIn.create({
+            identifier: resolvedIdentifier,
+            password,
+          });
+        } else {
+          throw firstErr;
+        }
+      }
+
+      if (res.status === 'needs_first_factor') {
+        res = await signIn.attemptFirstFactor({
+          strategy: 'password',
+          password,
+        });
+      }
+
+      // Если Clerk требует подтверждение входа кодом с почты (Client Trust / 2FA)
+      if (
+        res.status === 'needs_second_factor' ||
+        res.status === 'needs_first_factor'
+      ) {
+        await signIn.prepareSecondFactor?.({
+          strategy: 'email_code',
+        }).catch(async () => {
+          const emailFactor = res.supportedFirstFactors?.find(
+            (f) => f.strategy === 'email_code'
+          ) as { emailAddressId?: string } | undefined;
+          if (emailFactor?.emailAddressId) {
+            await signIn.prepareFirstFactor({
+              strategy: 'email_code',
+              emailAddressId: emailFactor.emailAddressId,
+            });
+          }
+        });
+        setCode('');
+        setSigninStep('verify2fa');
+        setSuccessMsg(
+          t(
+            'Для защиты аккаунта мы отправили код подтверждения входа на вашу почту.',
+            'We sent a sign-in verification code to your email.'
+          )
+        );
+        return;
+      }
 
       if (res.status === 'complete' && res.createdSessionId) {
-        await setActiveSignIn({ session: res.createdSessionId });
-        onClose();
+        const usedEmail = resolvedIdentifier.includes('@')
+          ? resolvedIdentifier
+          : '';
+        const usedUser = !rawId.includes('@')
+          ? rawId
+          : getUsernameByEmail(usedEmail) || undefined;
+        await finalizeClerkLogin(
+          res.createdSessionId,
+          setActiveSignIn,
+          usedEmail,
+          usedUser
+        );
       } else {
-        setError('Не удалось завершить вход. Проверьте почту/логин и пароль.');
+        setError(
+          t(
+            'Не удалось завершить вход. Проверьте почту/логин и пароль.',
+            'Could not complete sign in. Please check your credentials.'
+          )
+        );
       }
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 4. Забыл пароль — Шаг 1: отправка кода сброса на почту
+  // Подтверждение кода при входе (если Clerk включил Client Trust)
+  const handleSignInVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetMessages();
+    if (!signInLoaded || !signIn) return;
+
+    const cleanCode = code.trim();
+    if (cleanCode.length < 6) {
+      setError(
+        t('Введите 6-значный код из письма.', 'Enter the 6-digit email code.')
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let res;
+      if (signIn.status === 'needs_second_factor') {
+        res = await signIn.attemptSecondFactor({
+          strategy: 'email_code',
+          code: cleanCode,
+        });
+      } else {
+        res = await signIn.attemptFirstFactor({
+          strategy: 'email_code',
+          code: cleanCode,
+        });
+      }
+
+      if (res.status === 'complete' && res.createdSessionId) {
+        const resolved = await resolveEmailFromIdentifier(identifier);
+        await finalizeClerkLogin(
+          res.createdSessionId,
+          setActiveSignIn,
+          resolved,
+          !identifier.includes('@') ? identifier : undefined
+        );
+      } else {
+        setError(t('Неверный код подтверждения.', 'Invalid verification code.'));
+      }
+    } catch (err) {
+      setError(translateClerkError(err, lang));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 4. ЗАБЫЛ ПАРОЛЬ — Шаг 1: отправка кода сброса на почту
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
     if (!signInLoaded || !signIn) return;
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setError('Введите электронную почту, на которую зарегистрирован аккаунт.');
+    const rawInput = email.trim();
+    if (!rawInput) {
+      setError(
+        t(
+          'Введите вашу электронную почту или логин.',
+          'Please enter your email address or username.'
+        )
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
+      if (clerk.session) {
+        await clerk.signOut();
+      }
+
+      const targetEmail = await resolveEmailFromIdentifier(rawInput);
       await signIn.create({
         strategy: 'reset_password_email_code',
-        identifier: cleanEmail,
+        identifier: targetEmail,
       });
+      setEmail(targetEmail);
       setCode('');
       setPassword('');
       setConfirmPassword('');
       setResetStep('confirm');
       setSuccessMsg(
-        `Код для восстановления пароля отправлен на почту ${cleanEmail}.`
+        t(
+          `Код для восстановления пароля отправлен на почту ${targetEmail}.`,
+          `Password reset code sent to ${targetEmail}.`
+        )
       );
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 5. Забыл пароль — Шаг 2: ввод кода с почты и установка нового пароля
+  // 5. ЗАБЫЛ ПАРОЛЬ — Шаг 2: ввод кода с почты и установка нового пароля
   const handleResetConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
@@ -272,15 +654,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const cleanCode = code.trim();
     if (cleanCode.length < 6) {
-      setError('Введите 6-значный код из письма.');
+      setError(
+        t(
+          'Введите 6-значный код из письма.',
+          'Please enter the 6-digit code from the email.'
+        )
+      );
       return;
     }
     if (password.length < 8) {
-      setError('Новый пароль должен содержать минимум 8 символов.');
+      setError(
+        t(
+          'Новый пароль должен содержать минимум 8 символов.',
+          'New password must be at least 8 characters.'
+        )
+      );
       return;
     }
     if (password !== confirmPassword) {
-      setError('Новый пароль и подтверждение пароля не совпадают.');
+      setError(
+        t(
+          'Новый пароль и подтверждение пароля не совпадают.',
+          'Passwords do not match.'
+        )
+      );
       return;
     }
 
@@ -293,31 +690,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       if (res.status === 'complete' && res.createdSessionId) {
-        await setActiveSignIn({ session: res.createdSessionId });
-        onClose();
+        await finalizeClerkLogin(
+          res.createdSessionId,
+          setActiveSignIn,
+          email
+        );
       } else {
-        setError('Не удалось обновить пароль. Проверьте код из письма.');
+        setError(
+          t(
+            'Не удалось обновить пароль. Проверьте код из письма.',
+            'Could not reset password. Please check the code.'
+          )
+        );
       }
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Повторная отправка кода сброса пароля
   const handleResendResetCode = async () => {
     resetMessages();
     if (!signInLoaded || !signIn) return;
     setIsSubmitting(true);
     try {
+      const targetEmail = await resolveEmailFromIdentifier(email);
       await signIn.create({
         strategy: 'reset_password_email_code',
-        identifier: email.trim().toLowerCase(),
+        identifier: targetEmail,
       });
-      setSuccessMsg(`Новый код восстановления отправлен на ${email.trim()}.`);
+      setSuccessMsg(
+        t(
+          `Новый код восстановления отправлен на ${targetEmail}.`,
+          `A new reset code has been sent to ${targetEmail}.`
+        )
+      );
     } catch (err) {
-      setError(translateClerkError(err));
+      setError(translateClerkError(err, lang));
     } finally {
       setIsSubmitting(false);
     }
@@ -331,7 +741,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         <div className="lightbox-head font-mono">
           <span className="tapestry-head-title">
-            <ShieldCheck size={16} /> ЛИЧНЫЙ АККАУНТ ДНЕВНИКА
+            <ShieldCheck size={16} />{' '}
+            {t('ЛИЧНЫЙ АККАУНТ ДНЕВНИКА', 'PERSONAL DIARY ACCOUNT')}
           </span>
           <button type="button" className="btn-ghost" onClick={onClose}>
             <X size={16} />
@@ -348,17 +759,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               setMode('signup');
             }}
           >
-            <UserPlus size={14} /> Регистрация
+            <UserPlus size={14} /> {t('Регистрация', 'Sign Up')}
           </button>
           <button
             type="button"
             className={`mode-tab ${mode === 'signin' ? 'active' : ''}`}
             onClick={() => {
               resetMessages();
+              setSigninStep('form');
               setMode('signin');
             }}
           >
-            <LogIn size={14} /> Вход
+            <LogIn size={14} /> {t('Вход', 'Sign In')}
           </button>
           <button
             type="button"
@@ -369,24 +781,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               setMode('reset');
             }}
           >
-            <KeyRound size={14} /> Забыл пароль
+            <KeyRound size={14} /> {t('Забыл пароль', 'Forgot Password')}
           </button>
         </div>
+
+        {/* Контейнер для защитного виджета Clerk CAPTCHA при необходимости */}
+        <div id="clerk-captcha" />
 
         {/* === РЕГИСТРАЦИЯ: ШАГ 1 (ЛОГИН + ПОЧТА + ПАРОЛЬ) === */}
         {mode === 'signup' && signupStep === 'form' && (
           <form className="auth-form" onSubmit={handleSignUpStart}>
             <p className="auth-helper-text">
-              Укажите ваш логин, электронную почту и пароль. Мы отправим код
-              подтверждения на вашу почту.
+              {t(
+                'Укажите ваш логин, электронную почту и пароль. Мы отправим 6-значный код подтверждения на вашу почту.',
+                'Enter your username, email, and password. We will send a 6-digit verification code to your email.'
+              )}
             </p>
 
             <div>
-              <label className="mini-label font-mono">Логин</label>
+              <label className="mini-label font-mono">
+                {t('Логин', 'Username')}
+              </label>
               <input
                 type="text"
                 className="input-field"
-                placeholder="Ваш логин (латиницей)"
+                placeholder={t('Ваш логин', 'Your username')}
                 autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -394,11 +813,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div>
-              <label className="mini-label font-mono">Электронная почта</label>
+              <label className="mini-label font-mono">
+                {t('Электронная почта', 'Email Address')}
+              </label>
               <input
                 type="email"
                 className="input-field"
-                placeholder="Ваша почта"
+                placeholder={t('Ваша почта', 'Your email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -406,7 +827,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <label className="mini-label font-mono">
-                Пароль (минимум 8 символов)
+                {t('Пароль (минимум 8 символов)', 'Password (min 8 characters)')}
               </label>
               <input
                 type="password"
@@ -426,7 +847,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={isSubmitting}
             >
               <UserPlus size={16} />
-              {isSubmitting ? 'Отправляем код на почту...' : 'Продолжить'}
+              {isSubmitting
+                ? t('Отправляем код на почту...', 'Sending code to email...')
+                : t('Получить код на почту', 'Send Verification Code')}
             </button>
           </form>
         )}
@@ -435,13 +858,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {mode === 'signup' && signupStep === 'verify' && (
           <form className="auth-form" onSubmit={handleSignUpVerify}>
             <p className="auth-helper-text">
-              Введите 6-значный код, который пришёл на почту{' '}
-              <strong>{email}</strong>.
+              {t(
+                `Введите 6-значный код, отправленный на почту ${email}.`,
+                `Enter the 6-digit verification code sent to ${email}.`
+              )}
             </p>
 
             <div>
               <label className="mini-label font-mono">
-                Код подтверждения из письма
+                {t('Код подтверждения из письма', 'Verification Code')}
               </label>
               <input
                 type="text"
@@ -464,7 +889,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={isSubmitting}
             >
               <MailCheck size={16} />
-              {isSubmitting ? 'Проверяем код...' : 'Подтвердить и создать дневник'}
+              {isSubmitting
+                ? t('Проверяем код...', 'Verifying code...')
+                : t(
+                    'Подтвердить и создать дневник',
+                    'Verify & Create Diary'
+                  )}
             </button>
 
             <div className="auth-sub-actions">
@@ -476,7 +906,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setSignupStep('form');
                 }}
               >
-                <ArrowLeft size={14} /> Изменить данные
+                <ArrowLeft size={14} /> {t('Изменить данные', 'Change details')}
               </button>
               <button
                 type="button"
@@ -484,27 +914,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={handleResendSignUpCode}
                 disabled={isSubmitting}
               >
-                <RefreshCw size={14} /> Отправить код повторно
+                <RefreshCw size={14} />{' '}
+                {t('Отправить код повторно', 'Resend code')}
               </button>
             </div>
           </form>
         )}
 
-        {/* === ВХОД В АККАУНТ (ПОЧТА ИЛИ ЛОГИН + ПАРОЛЬ) === */}
-        {mode === 'signin' && (
+        {/* === ВХОД В АККАУНТ: ШАГ 1 (ПОЧТА ИЛИ ЛОГИН + ПАРОЛЬ) === */}
+        {mode === 'signin' && signinStep === 'form' && (
           <form className="auth-form" onSubmit={handleSignIn}>
             <p className="auth-helper-text">
-              Введите вашу электронную почту или логин и пароль от дневника.
+              {t(
+                'Введите вашу электронную почту или логин и пароль от дневника.',
+                'Enter your email address or username and password.'
+              )}
             </p>
 
             <div>
               <label className="mini-label font-mono">
-                Электронная почта или логин
+                {t('Электронная почта или логин', 'Email or Username')}
               </label>
               <input
                 type="text"
                 className="input-field"
-                placeholder="Ваша почта или логин"
+                placeholder={t('Ваша почта или логин', 'Your email or username')}
                 autoFocus
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -513,20 +947,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <div className="auth-label-row">
-                <label className="mini-label font-mono">Пароль</label>
+                <label className="mini-label font-mono">
+                  {t('Пароль', 'Password')}
+                </label>
                 <button
                   type="button"
                   className="auth-forgot-link font-mono"
                   onClick={() => {
                     resetMessages();
-                    if (identifier.includes('@')) {
+                    if (identifier.trim()) {
                       setEmail(identifier.trim());
                     }
                     setResetStep('request');
                     setMode('reset');
                   }}
                 >
-                  Забыли пароль?
+                  {t('Забыли пароль?', 'Forgot password?')}
                 </button>
               </div>
               <input
@@ -547,25 +983,86 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={isSubmitting}
             >
               <LogIn size={16} />
-              {isSubmitting ? 'Открываем дневник...' : 'Войти в дневник'}
+              {isSubmitting
+                ? t('Открываем дневник...', 'Signing in...')
+                : t('Войти в дневник', 'Sign In')}
             </button>
           </form>
         )}
 
-        {/* === ЗАБЫЛ ПАРОЛЬ: ШАГ 1 (ВВОД ПОЧТЫ ДЛЯ ПОЛУЧЕНИЯ КОДА) === */}
-        {mode === 'reset' && resetStep === 'request' && (
-          <form className="auth-form" onSubmit={handleResetRequest}>
+        {/* === ВХОД В АККАУНТ: ШАГ 2 (КОД С ПОЧТЫ ПРИ ЗАЩИТЕ ВХОДА) === */}
+        {mode === 'signin' && signinStep === 'verify2fa' && (
+          <form className="auth-form" onSubmit={handleSignInVerify2FA}>
             <p className="auth-helper-text">
-              Укажите вашу электронную почту. Мы отправим на неё 6-значный код,
-              чтобы вы могли задать новый пароль.
+              {t(
+                'Введите 6-значный код подтверждения входа, который пришёл на вашу почту.',
+                'Enter the 6-digit verification code sent to your email.'
+              )}
             </p>
 
             <div>
-              <label className="mini-label font-mono">Электронная почта</label>
+              <label className="mini-label font-mono">
+                {t('Код из письма', 'Email Code')}
+              </label>
               <input
-                type="email"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                className="input-field font-mono"
+                placeholder="000000"
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+
+            {error && <div className="form-error">{error}</div>}
+            {successMsg && <div className="form-success">{successMsg}</div>}
+
+            <button
+              type="submit"
+              className="btn-primary btn-large"
+              disabled={isSubmitting}
+            >
+              <MailCheck size={16} />
+              {isSubmitting
+                ? t('Проверяем...', 'Verifying...')
+                : t('Подтвердить вход', 'Confirm Sign In')}
+            </button>
+
+            <div className="auth-sub-actions">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  resetMessages();
+                  setSigninStep('form');
+                }}
+              >
+                <ArrowLeft size={14} /> {t('Назад', 'Back')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* === ЗАБЫЛ ПАРОЛЬ: ШАГ 1 (ВВОД ПОЧТЫ ИЛИ ЛОГИНА ДЛЯ ПОЛУЧЕНИЯ КОДА) === */}
+        {mode === 'reset' && resetStep === 'request' && (
+          <form className="auth-form" onSubmit={handleResetRequest}>
+            <p className="auth-helper-text">
+              {t(
+                'Укажите вашу электронную почту (или логин). Мы отправим на почту 6-значный код, чтобы вы могли поменять пароль.',
+                'Enter your email address (or username). We will send a 6-digit code to your email to reset your password.'
+              )}
+            </p>
+
+            <div>
+              <label className="mini-label font-mono">
+                {t('Электронная почта или логин', 'Email or Username')}
+              </label>
+              <input
+                type="text"
                 className="input-field"
-                placeholder="Ваша почта"
+                placeholder={t('Ваша почта или логин', 'Your email or username')}
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -581,7 +1078,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={isSubmitting}
             >
               <MailCheck size={16} />
-              {isSubmitting ? 'Отправляем код...' : 'Отправить код на почту'}
+              {isSubmitting
+                ? t('Отправляем код...', 'Sending code...')
+                : t('Отправить код на почту', 'Send Reset Code')}
             </button>
           </form>
         )}
@@ -590,13 +1089,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {mode === 'reset' && resetStep === 'confirm' && (
           <form className="auth-form" onSubmit={handleResetConfirm}>
             <p className="auth-helper-text">
-              Введите 6-значный код из письма, отправленного на{' '}
-              <strong>{email}</strong>, и задайте новый пароль.
+              {t(
+                `Введите 6-значный код из письма, отправленного на ${email}, и задайте новый пароль.`,
+                `Enter the 6-digit code sent to ${email} and choose a new password.`
+              )}
             </p>
 
             <div>
               <label className="mini-label font-mono">
-                Код из письма (6 цифр)
+                {t('Код из письма (6 цифр)', '6-Digit Email Code')}
               </label>
               <input
                 type="text"
@@ -612,7 +1113,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <label className="mini-label font-mono">
-                Новый пароль (минимум 8 символов)
+                {t(
+                  'Новый пароль (минимум 8 символов)',
+                  'New Password (min 8 characters)'
+                )}
               </label>
               <input
                 type="password"
@@ -625,7 +1129,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <label className="mini-label font-mono">
-                Повторите новый пароль
+                {t('Повторите новый пароль', 'Confirm New Password')}
               </label>
               <input
                 type="password"
@@ -645,7 +1149,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={isSubmitting}
             >
               <KeyRound size={16} />
-              {isSubmitting ? 'Сохраняем пароль...' : 'Сменить пароль и войти'}
+              {isSubmitting
+                ? t('Сохраняем пароль...', 'Saving password...')
+                : t('Сменить пароль и войти', 'Change Password & Sign In')}
             </button>
 
             <div className="auth-sub-actions">
@@ -657,7 +1163,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setResetStep('request');
                 }}
               >
-                <ArrowLeft size={14} /> Указать другую почту
+                <ArrowLeft size={14} />{' '}
+                {t('Указать другую почту', 'Use another email')}
               </button>
               <button
                 type="button"
@@ -665,7 +1172,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={handleResendResetCode}
                 disabled={isSubmitting}
               >
-                <RefreshCw size={14} /> Отправить код повторно
+                <RefreshCw size={14} />{' '}
+                {t('Отправить код повторно', 'Resend code')}
               </button>
             </div>
           </form>
