@@ -217,13 +217,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await signUp.create({
-        username: cleanUser,
+      try {
+        localStorage.setItem(
+          'yourdiary_preferred_username_' + cleanMail.toLowerCase(),
+          cleanUser
+        );
+      } catch {
+        // ignore
+      }
+
+      const createPayload: Record<string, unknown> = {
         emailAddress: cleanMail,
         password: regPassword,
-      });
+        firstName: cleanUser,
+        unsafeMetadata: { username: cleanUser },
+      };
+      if (cleanUser) {
+        createPayload.username = cleanUser;
+      }
 
-      // Отправляем код подтверждения на email
+      try {
+        await signUp.create(createPayload as Parameters<typeof signUp.create>[0]);
+      } catch (createErr: unknown) {
+        const errStr = String(
+          (createErr as { message?: string })?.message || JSON.stringify(createErr)
+        ).toLowerCase();
+        // Если поле username не активировано в настройках Clerk, создаём без него
+        if (
+          errStr.includes('username') &&
+          (errStr.includes('not allowed') ||
+            errStr.includes('not supported') ||
+            errStr.includes('not enabled') ||
+            errStr.includes('unknown') ||
+            errStr.includes('param_not_supported'))
+        ) {
+          delete createPayload.username;
+          await signUp.create(createPayload as Parameters<typeof signUp.create>[0]);
+        } else {
+          throw createErr;
+        }
+      }
+
+      // Отправляем проверочный код на email
       await signUp.prepareEmailAddressVerification({
         strategy: 'email_code',
       });
@@ -263,6 +298,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           await setSignUpActive({ session: result.createdSessionId });
         }
         onClose();
+      } else if (result.status === 'missing_requirements') {
+        if (result.createdSessionId && setSignUpActive) {
+          await setSignUpActive({ session: result.createdSessionId });
+          onClose();
+          return;
+        }
+        if (result.missingFields?.includes('password') && regPassword) {
+          const updated = await signUp.update({ password: regPassword });
+          if (updated.status === 'complete' && setSignUpActive) {
+            await setSignUpActive({ session: updated.createdSessionId });
+            onClose();
+            return;
+          }
+        }
+        setErrorMsg(
+          t(
+            'Требуются дополнительные данные: ' + (result.missingFields?.join(', ') || ''),
+            'Additional data required: ' + (result.missingFields?.join(', ') || '')
+          )
+        );
       } else {
         setErrorMsg(
           t('Не удалось завершить регистрацию. Попробуйте ещё раз.', 'Could not complete registration. Please try again.')
