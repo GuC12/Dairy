@@ -794,7 +794,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                   <Search size={15} />
                   <input
                     type="text"
-                    placeholder="Найти реальный трек с 30-сек превью (например: Frank Sinatra, Кино, Billie Eilish)..."
+                    placeholder="Найти реальный трек с 30-сек превью..."
                     value={trackQuery}
                     onChange={(e) => setTrackQuery(e.target.value)}
                     onKeyDown={(e) => {

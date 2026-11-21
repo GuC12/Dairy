@@ -206,11 +206,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </p>
 
           <div>
-            <label className="mini-label font-mono">Логин (никнейм)</label>
+            <label className="mini-label font-mono">Логин</label>
             <input
               type="text"
               className="input-field"
-              placeholder="например: guc12"
+              placeholder="Ваш логин"
               autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
