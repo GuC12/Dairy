@@ -58,6 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetEmailAddressId, setResetEmailAddressId] = useState<string | null>(null);
 
   // Status & errors
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -153,6 +154,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return t(
         'Неверный формат адреса электронной почты.',
         'Invalid email address format.'
+      );
+    }
+    if (
+      msg.includes('email_address_id') ||
+      msg.includes('email address id') ||
+      code === 'form_param_missing'
+    ) {
+      return t(
+        'Не удалось определить адрес почты для восстановления. Проверьте логин или почту.',
+        'Could not determine email address for password reset. Check your username or email.'
       );
     }
 
@@ -342,16 +353,75 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await signIn.create({
-        strategy: 'reset_password_email_code',
+      // 1. Инициируем попытку входа по логину или email
+      const signInAttempt = await signIn.create({
         identifier: id,
       });
+
+      // 2. Ищем доступный фактор сброса пароля через email
+      const factors = (signInAttempt.supportedFirstFactors || []) as Array<{
+        strategy?: string;
+        emailAddressId?: string;
+        safeIdentifier?: string;
+      }>;
+
+      const resetFactor = factors.find(
+        (f) => f.strategy === 'reset_password_email_code'
+      );
+
+      let targetEmailId = resetFactor?.emailAddressId;
+      let targetSafeEmail = resetFactor?.safeIdentifier;
+
+      // Если reset_password_email_code не указан прямо, берём первый email-фактор
+      if (!targetEmailId) {
+        const anyEmail = factors.find((f) => f.emailAddressId);
+        targetEmailId = anyEmail?.emailAddressId;
+        targetSafeEmail = anyEmail?.safeIdentifier;
+      }
+
+      if (!targetEmailId) {
+        throw new Error(
+          t(
+            'Не найден подтверждённый адрес почты для восстановления аккаунта.',
+            'No verified email address found for password reset.'
+          )
+        );
+      }
+
+      setResetEmailAddressId(targetEmailId);
+
+      // 3. Отправляем 6-значный проверочный код на email
+      await signIn.prepareFirstFactor({
+        strategy: 'reset_password_email_code',
+        emailAddressId: targetEmailId,
+      });
+
       setResetStep('verify');
       setSuccessMsg(
         t(
-          'Код для смены пароля отправлен на почту. Введите его ниже.',
-          'Password reset code sent to your email. Enter it below.'
+          `Код для смены пароля отправлен на почту${targetSafeEmail ? ` (${targetSafeEmail})` : ''}. Введите его ниже.`,
+          `Password reset code sent to your email${targetSafeEmail ? ` (${targetSafeEmail})` : ''}. Enter it below.`
         )
+      );
+    } catch (err) {
+      setErrorMsg(parseErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Повторная отправка кода сброса пароля
+  const handleResendResetCode = async () => {
+    if (!isSignInLoaded || !signIn || !resetEmailAddressId) return;
+    clearMessages();
+    setIsSubmitting(true);
+    try {
+      await signIn.prepareFirstFactor({
+        strategy: 'reset_password_email_code',
+        emailAddressId: resetEmailAddressId,
+      });
+      setSuccessMsg(
+        t('Новый код отправлен на вашу почту.', 'A new code has been sent to your email.')
       );
     } catch (err) {
       setErrorMsg(parseErrorMessage(err));
@@ -864,6 +934,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onClick={() => setResetStep('request')}
                   >
                     <ArrowLeft size={13} /> {t('Назад', 'Back')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost auth-link-btn"
+                    onClick={handleResendResetCode}
+                    disabled={isSubmitting}
+                  >
+                    <RefreshCw size={13} /> {t('Отправить код ещё раз', 'Resend code')}
                   </button>
                 </div>
               </form>
