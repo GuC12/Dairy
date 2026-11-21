@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BookOpen,
   Disc3,
   Download,
   Folder,
+  LayoutGrid,
   Pause,
   Play,
   Plus,
@@ -53,6 +55,9 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
 }) => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | ArtMovementId>('all');
+  const [layoutMode, setLayoutMode] = useState<'posters' | 'editorial'>(
+    'posters'
+  );
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<DayAudioController | null>(null);
@@ -279,6 +284,27 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             </button>
           ))}
         </div>
+
+        <div className="layout-Mode-switch font-mono">
+          <button
+            type="button"
+            className={`layout-btn ${layoutMode === 'posters' ? 'active' : ''}`}
+            onClick={() => setLayoutMode('posters')}
+            title="Витрина постеров 4:5"
+          >
+            <LayoutGrid size={14} />
+            Постеры
+          </button>
+          <button
+            type="button"
+            className={`layout-btn ${layoutMode === 'editorial' ? 'active' : ''}`}
+            onClick={() => setLayoutMode('editorial')}
+            title="Журнальные развороты с цитатами и палитрой"
+          >
+            <BookOpen size={14} />
+            Развороты
+          </button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -286,7 +312,13 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           <p>По вашему запросу папок не найдено.</p>
         </div>
       ) : (
-        <div className="archive-grid">
+        <div
+          className={
+            layoutMode === 'editorial'
+              ? 'archive-editorial-list'
+              : 'archive-grid'
+          }
+        >
           {filtered.map((entry, idx) => {
             const mv = MOVEMENT_SHORT[entry.analysis.movement];
             const isCardPlaying = playingId === entry.id;
@@ -299,7 +331,9 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             return (
               <article
                 key={entry.id}
-                className={`archive-card ${isCardPlaying ? 'is-playing-card' : ''}`}
+                className={`archive-card ${
+                  layoutMode === 'editorial' ? 'archive-card-editorial' : ''
+                } ${isCardPlaying ? 'is-playing-card' : ''}`}
                 style={
                   {
                     animationDelay: `${idx * 65}ms`,
@@ -321,50 +355,68 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                   onSelect(entry);
                 }}
               >
-                {/* Верхний паспорт экспоната с живыми цветами фото */}
-                <div className="card-exhibit-bar font-mono">
-                  <span
-                    className="exhibit-badge"
-                    style={{
-                      color: mv.color,
-                      borderColor: `${mv.color}55`,
-                      background: `${mv.color}16`,
-                    }}
-                  >
-                    {mv.tag}
-                  </span>
+                <div className="card-visual-column">
+                  {/* Верхний паспорт экспоната с живыми цветами фото */}
+                  <div className="card-exhibit-bar font-mono">
+                    <span
+                      className="exhibit-badge"
+                      style={{
+                        color: mv.color,
+                        borderColor: `${mv.color}55`,
+                        background: `${mv.color}16`,
+                      }}
+                    >
+                      {mv.tag}
+                    </span>
 
-                  <div className="card-swatches" title="Палитра фотографий дня">
-                    {swatches.slice(0, 4).map((hex, sIdx) => (
-                      <span
-                        key={sIdx}
-                        className="card-swatch-dot"
-                        style={{ backgroundColor: hex }}
-                      />
-                    ))}
+                    <div className="card-swatches" title="Палитра фотографий дня">
+                      {swatches.slice(0, 4).map((hex, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="card-swatch-dot"
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="archive-canvas-wrap">
-                  <MemoryCanvas
-                    entry={entry}
-                    compact
-                    isPlaying={isCardActive}
-                    getSpectrum={
-                      isCardPlaying
-                        ? () =>
-                            audioRef.current?.getSpectrumMetrics() ?? {
-                              bass: 0,
-                              mid: 0,
-                              treble: 0,
-                              energy: 0,
-                              bars: [],
-                            }
-                        : undefined
-                    }
-                  />
-                  <div className="archive-hover-pill font-mono">
-                    Открыть папку дня →
+                  {/* Обложка 4:5 + выезжающая виниловая пластинка */}
+                  <div className="archive-sleeve-stage">
+                    <div
+                      className={`vinyl-sleeve-disc ${
+                        isCardPlaying ? 'is-spinning' : ''
+                      }`}
+                    >
+                      <div
+                        className="vinyl-center-label"
+                        style={{
+                          background: `radial-gradient(circle, ${entry.analysis.palette.accent}, ${entry.analysis.palette.secondary})`,
+                        }}
+                      />
+                    </div>
+
+                    <div className="archive-canvas-wrap">
+                      <MemoryCanvas
+                        entry={entry}
+                        compact
+                        isPlaying={isCardActive}
+                        getSpectrum={
+                          isCardPlaying
+                            ? () =>
+                                audioRef.current?.getSpectrumMetrics() ?? {
+                                  bass: 0,
+                                  mid: 0,
+                                  treble: 0,
+                                  energy: 0,
+                                  bars: [],
+                                }
+                            : undefined
+                        }
+                      />
+                      <div className="archive-hover-pill font-mono">
+                        Открыть папку дня →
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -376,6 +428,33 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                     />
                     <span>{entry.analysis.folderName}</span>
                   </div>
+
+                  {layoutMode === 'editorial' && (
+                    <div className="editorial-spread-body">
+                      <div className="editorial-date-line font-mono">
+                        DAY // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
+                        {entry.dateLabel}
+                        {entry.location ? ` · ${entry.location}` : ''}
+                        {entry.weather ? ` · ${entry.weather}` : ''}
+                      </div>
+                      <h2 className="editorial-spread-title font-serif">
+                        {entry.analysis.folderName}
+                      </h2>
+                      <p className="editorial-spread-quote">«{entry.text}»</p>
+
+                      <div className="editorial-pantone-strip">
+                        {swatches.slice(0, 4).map((hex, i) => (
+                          <div key={i} className="pantone-chip font-mono">
+                            <span
+                              className="pantone-color"
+                              style={{ backgroundColor: hex }}
+                            />
+                            <span className="pantone-hex">{hex}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Интерактивная музыкальная капсула с винилом */}
                   <div className="card-vinyl-row">

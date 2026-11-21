@@ -79,39 +79,65 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
               bars: [],
             };
 
-      // 1. Постоянный фон страницы
-      ctx.fillStyle = palette.bg;
+      // 1. Постоянный фон страницы с мягким музейным градиентом
+      const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+      bgGrad.addColorStop(0, palette.bg);
+      bgGrad.addColorStop(1, palette.surface);
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
+
+      // Тонкая акцентная полоса спектра по верхнему краю постера
+      const topSpec = ctx.createLinearGradient(0, 0, W, 0);
+      topSpec.addColorStop(0, palette.accent);
+      topSpec.addColorStop(0.5, palette.secondary);
+      topSpec.addColorStop(1, palette.accent);
+      ctx.fillStyle = topSpec;
+      ctx.fillRect(0, 0, W, compact ? 3 : 5);
 
       // 2. Постоянная внешняя рамка и шапка дневника
       const pad = Math.round(W * 0.055);
       const headerH = Math.round(H * 0.08);
       const footerH = Math.round(H * 0.19);
 
-      ctx.strokeStyle =
-        movement === 'constructivism'
-          ? 'rgba(238, 242, 246, 0.24)'
-          : 'rgba(26, 25, 23, 0.15)';
+      ctx.strokeStyle = palette.ink;
+      ctx.globalAlpha = 0.16;
       ctx.lineWidth = compact ? 1 : 1.5;
       ctx.strokeRect(pad * 0.55, pad * 0.55, W - pad * 1.1, H - pad * 1.1);
+      ctx.globalAlpha = 1;
 
-      // Шапка (индекс дня, дата, погода)
+      // Шапка (индекс дня, 4 цветовых пробника Pantone, дата, погода)
+      const headY = pad * 0.55 + headerH * 0.5;
       ctx.fillStyle = palette.ink;
-      ctx.font = `500 ${Math.round(W * 0.022)}px "JetBrains Mono", monospace`;
+      ctx.font = `600 ${Math.round(W * 0.022)}px "JetBrains Mono", monospace`;
       ctx.textBaseline = 'middle';
       const dayCode = `DAY // ${String(entry.indexNumber).padStart(2, '0')}`;
-      ctx.fillText(dayCode, pad, pad * 0.55 + headerH * 0.5);
+      ctx.fillText(dayCode, pad, headY);
 
-      ctx.globalAlpha = 0.72;
+      // 4 цветовых чипа палитры фото
+      const chipColors = entry.photos[0]?.dominantColors ?? [
+        palette.accent,
+        palette.secondary,
+      ];
+      const chipStart = pad + ctx.measureText(dayCode).width + Math.round(W * 0.025);
+      const chipSize = compact ? 7 : 10;
+      chipColors.slice(0, 4).forEach((hex, cIdx) => {
+        ctx.fillStyle = hex;
+        ctx.fillRect(
+          chipStart + cIdx * (chipSize + 4),
+          headY - chipSize / 2,
+          chipSize,
+          chipSize
+        );
+      });
+
+      ctx.fillStyle = palette.ink;
+      ctx.globalAlpha = 0.74;
+      ctx.font = `500 ${Math.round(W * 0.02)}px "JetBrains Mono", monospace`;
       const rightMeta = [entry.dateLabel, entry.weather]
         .filter(Boolean)
         .join(' · ');
       const metaWidth = ctx.measureText(rightMeta).width;
-      ctx.fillText(
-        rightMeta,
-        W - pad - metaWidth,
-        pad * 0.55 + headerH * 0.5
-      );
+      ctx.fillText(rightMeta, W - pad - metaWidth, headY);
       ctx.globalAlpha = 1;
 
       // 3. Зона встроенного фото (зависит от whitespace и movement)
@@ -402,41 +428,72 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
 
       ctx.restore();
 
-      // 5. Постоянный нижний блок (название папки, трек, подпись)
+      // 5. Постоянный нижний блок (название папки, трек, подпись, музейный индекс)
       const footerTop = H - pad * 0.55 - footerH;
+
+      // Тонкая разделительная линия над подвалом
+      ctx.strokeStyle = palette.ink;
+      ctx.globalAlpha = 0.15;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, footerTop + 2);
+      ctx.lineTo(W - pad, footerTop + 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
       ctx.fillStyle = palette.ink;
       ctx.font = `600 ${Math.round(
-        W * 0.044
+        W * 0.045
       )}px "Cormorant Garamond", Georgia, serif`;
       ctx.textBaseline = 'top';
-      ctx.fillText(analysis.folderName, pad, footerTop + 8, W - pad * 2);
+      ctx.fillText(analysis.folderName, pad, footerTop + 10, W - pad * 2);
 
-      const musicY = footerTop + Math.round(W * 0.068);
-      ctx.fillStyle = palette.accent;
-      const barH = Math.round(10 + spec.energy * 8);
-      ctx.fillRect(pad, musicY + (14 - barH) / 2, 6, barH);
+      const musicY = footerTop + Math.round(W * 0.072);
+      // Мини-спектр из 4 полосок
+      for (let b = 0; b < 4; b++) {
+        const bh = Math.round(
+          6 +
+            ((b % 2 === 0 ? spec.bass : spec.energy) * 10 +
+              Math.abs(Math.sin(elapsed * 4 + b)) * (isPlaying ? 6 : 2))
+        );
+        ctx.fillStyle = b % 2 === 0 ? palette.accent : palette.secondary;
+        ctx.fillRect(pad + b * 4, musicY + 14 - bh, 2.5, bh);
+      }
 
       ctx.fillStyle = palette.ink;
       ctx.globalAlpha = 0.82;
-      ctx.font = `400 ${Math.round(W * 0.021)}px "JetBrains Mono", monospace`;
-      const trackLabel = `♪ ${music.artist ? music.artist + ' — ' : ''}${
+      ctx.font = `500 ${Math.round(W * 0.02)}px "JetBrains Mono", monospace`;
+      const trackLabel = `${music.artist ? music.artist + ' — ' : ''}${
         music.title || 'Без трека'
       } · ${music.bpm} BPM`;
-      ctx.fillText(trackLabel, pad + 14, musicY, W - pad * 2 - 14);
+      ctx.fillText(trackLabel, pad + 22, musicY, W - pad * 2 - 22);
       ctx.globalAlpha = 1;
 
       if (entry.signature) {
         ctx.fillStyle = palette.ink;
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.88;
         ctx.font = `500 ${Math.round(W * 0.036)}px "Caveat", cursive`;
         ctx.fillText(
           entry.signature,
           pad,
           musicY + Math.round(W * 0.038),
-          W - pad * 2
+          W - pad * 2.4
         );
         ctx.globalAlpha = 1;
       }
+
+      // Каталожный штамп в правом нижнем углу постера
+      ctx.fillStyle = palette.ink;
+      ctx.globalAlpha = 0.42;
+      ctx.font = `500 ${Math.round(W * 0.016)}px "JetBrains Mono", monospace`;
+      const stampText = movement.toUpperCase();
+      const sw = ctx.measureText(stampText).width;
+      ctx.fillText(
+        stampText,
+        W - pad - sw,
+        musicY + Math.round(W * 0.052)
+      );
+      ctx.globalAlpha = 1;
 
       if (!compact || isPlaying) {
         rafId = requestAnimationFrame(drawFrame);
