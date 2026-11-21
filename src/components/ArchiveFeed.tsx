@@ -17,6 +17,7 @@ import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
+import { TapestryModal } from './TapestryModal';
 
 interface ArchiveFeedProps {
   entries: DiaryEntry[];
@@ -63,6 +64,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   );
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [showTapestry, setShowTapestry] = useState(false);
   const audioRef = useRef<DayAudioController | null>(null);
 
   useEffect(() => {
@@ -259,6 +261,17 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             >
               <Sparkles size={15} />
               Капсула
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowTapestry(true)}
+              disabled={entries.length === 0}
+              title="Сплести все дни дневника в единый постер-гобелен сезона"
+            >
+              <Sparkles size={15} />
+              Гобелен
             </button>
 
             <button
@@ -526,6 +539,13 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             );
           })}
         </div>
+      )}
+
+      {showTapestry && (
+        <TapestryModal
+          entries={entries}
+          onClose={() => setShowTapestry(false)}
+        />
       )}
     </div>
   );

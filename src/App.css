@@ -2301,3 +2301,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.tapestry-modal-box {
+  max-width: 1020px;
+}
+
+.tapestry-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tapestry-head-title svg {
+  color: var(--accent-warm);
+}

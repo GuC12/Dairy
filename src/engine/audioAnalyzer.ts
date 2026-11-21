@@ -117,6 +117,7 @@ export class DayAudioController {
   private noiseNode: AudioBufferSourceNode | null = null;
   private synthTimer: number | null = null;
   private masterGain: GainNode | null = null;
+  private clarityFilter: BiquadFilterNode | null = null;
   private streamDest: MediaStreamAudioDestinationNode | null = null;
   private freqData: Uint8Array<ArrayBuffer> | null = null;
   private isPlaying = false;
@@ -144,9 +145,14 @@ export class DayAudioController {
     this.baseVolume = hasAudioSource ? 0.85 : 0.38;
     this.masterGain.gain.value = this.baseVolume;
 
+    this.clarityFilter = this.ctx.createBiquadFilter();
+    this.clarityFilter.type = 'lowpass';
+    this.clarityFilter.frequency.value = 18500;
+
     this.streamDest = this.ctx.createMediaStreamDestination();
 
-    this.masterGain.connect(this.analyser);
+    this.masterGain.connect(this.clarityFilter);
+    this.clarityFilter.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
     this.analyser.connect(this.streamDest);
 
@@ -180,6 +186,20 @@ export class DayAudioController {
     if (!this.ctx || !this.masterGain) return;
     const target = ducked ? this.baseVolume * 0.25 : this.baseVolume;
     this.masterGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.25);
+  }
+
+  /**
+   * 0 = глухой звук сквозь «туман времени» (360 Hz), 1 = чистый звук (18500 Hz)
+   */
+  public setMemoryClarity(clarity: number): void {
+    if (!this.ctx || !this.clarityFilter) return;
+    const c = Math.max(0, Math.min(1, clarity));
+    const freq = 360 * Math.pow(18500 / 360, c);
+    this.clarityFilter.frequency.setTargetAtTime(
+      freq,
+      this.ctx.currentTime,
+      0.12
+    );
   }
 
   public getAudioStream(): MediaStream | null {

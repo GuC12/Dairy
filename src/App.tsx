@@ -6,10 +6,17 @@ import { ArchiveFeed } from './components/ArchiveFeed';
 import { DayFolderView } from './components/DayFolderView';
 import { CreateDayView } from './components/CreateDayView';
 import { VisualSystemPage } from './components/VisualSystemPage';
+import { BackdropCanvas, type WorldThemeId } from './components/BackdropCanvas';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
-type GalleryTheme = 'prism' | 'editorial';
+
+const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
+  { id: 'turrell', label: 'Turrell Dawn' },
+  { id: 'monet', label: 'Monet Garden' },
+  { id: 'genesis', label: 'Genesis Studio' },
+  { id: 'indigo', label: 'Velvet Indigo' },
+];
 
 export function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
@@ -20,7 +27,7 @@ export function App() {
   const [hoveredEntry, setHoveredEntry] = useState<DiaryEntry | null>(null);
   const [autoImmersive, setAutoImmersive] = useState(false);
   const [autoReel, setAutoReel] = useState(false);
-  const [theme, setTheme] = useState<GalleryTheme>('prism');
+  const [world, setWorld] = useState<WorldThemeId>('turrell');
 
   useEffect(() => {
     loadAllDays().then((days) => {
@@ -70,9 +77,11 @@ export function App() {
       ]
     : ['#f59e0b', '#38bdf8', '#10b981', '#ec4899'];
 
+  const isDarkWorld = world === 'indigo';
+
   return (
     <div
-      className={`app-shell theme-${theme}`}
+      className={`app-shell ${isDarkWorld ? 'theme-prism' : 'theme-editorial'} world-${world}`}
       style={
         {
           '--aura-1': auraColors[0],
@@ -82,14 +91,9 @@ export function App() {
         } as React.CSSProperties
       }
     >
-      {/* Многоцветная живая фоновая аура, реагирующая на каждый день */}
-      <div className="chromatic-aurora-stage" aria-hidden="true">
-        <div className="aurora-orb orb-1" />
-        <div className="aurora-orb orb-2" />
-        <div className="aurora-orb orb-3" />
-        <div className="aurora-orb orb-4" />
-        <div className="aurora-grid-overlay" />
-      </div>
+      {/* Живое полноэкранное световое полотно (Canvas) вместо чёрного фона */}
+      <BackdropCanvas world={world} activeColors={auraColors} />
+      <div className="aurora-grid-overlay" aria-hidden="true" />
 
       <header className="topbar">
         <div
@@ -139,14 +143,16 @@ export function App() {
         <button
           type="button"
           className="theme-switch-btn font-mono"
-          onClick={() =>
-            setTheme((prev) => (prev === 'prism' ? 'editorial' : 'prism'))
-          }
-          title="Переключить атмосферу галереи"
+          onClick={() => {
+            const idx = WORLD_LIST.findIndex((w) => w.id === world);
+            const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
+            setWorld(next.id);
+          }}
+          title="Переключить художественный мир фона (4 режима)"
         >
           <Palette size={14} />
           <span>
-            {theme === 'prism' ? 'Chromatic Prism' : 'Genesis Paper'}
+            {WORLD_LIST.find((w) => w.id === world)?.label ?? 'Turrell Dawn'}
           </span>
         </button>
       </header>

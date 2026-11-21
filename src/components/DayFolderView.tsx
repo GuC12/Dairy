@@ -61,6 +61,9 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     initialImmersive || initialAutoReel
   );
   const [isAutoReel, setIsAutoReel] = useState(initialAutoReel);
+  const [frostMode, setFrostMode] = useState(
+    initialImmersive && !initialAutoReel
+  );
   const [reelProgress, setReelProgress] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
@@ -355,6 +358,10 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             entry={entry}
             isPlaying={isPlaying}
             pinnedPhotoIndex={pinnedPhotoIndex}
+            frostMode={frostMode}
+            onFrostClarityChange={(c) =>
+              audioCtrlRef.current?.setMemoryClarity(c)
+            }
             getSpectrum={() =>
               audioCtrlRef.current?.getSpectrumMetrics() ?? {
                 bass: 0,
@@ -768,6 +775,18 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             </span>
             <div className="immersive-actions">
               <button
+                className={`btn-secondary ${frostMode ? 'is-active' : ''}`}
+                onClick={() => {
+                  const next = !frostMode;
+                  setFrostMode(next);
+                  audioCtrlRef.current?.setMemoryClarity(next ? 0.08 : 1);
+                }}
+                title="Покрыть воспоминание туманом времени и стереть его курсором"
+              >
+                <Sparkles size={15} />
+                {frostMode ? 'Туман: ВКЛ' : 'Туман памяти'}
+              </button>
+              <button
                 className={`btn-secondary ${isAutoReel ? 'is-active' : ''}`}
                 onClick={() => setIsAutoReel((prev) => !prev)}
                 title="Автоматически листать все дни дневника как фильм"
@@ -801,6 +820,10 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
               <MemoryCanvas
                 entry={entry}
                 isPlaying={isPlaying}
+                frostMode={frostMode}
+                onFrostClarityChange={(c) =>
+                  audioCtrlRef.current?.setMemoryClarity(c)
+                }
                 getSpectrum={() =>
                   audioCtrlRef.current?.getSpectrumMetrics() ?? {
                     bass: 0,

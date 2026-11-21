@@ -8,6 +8,8 @@ interface MemoryCanvasProps {
   getSpectrum?: () => SpectrumMetrics;
   compact?: boolean;
   pinnedPhotoIndex?: number | null;
+  frostMode?: boolean;
+  onFrostClarityChange?: (clarity: number) => void;
   canvasRefOut?: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -38,11 +40,14 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   getSpectrum,
   compact = false,
   pinnedPhotoIndex = null,
+  frostMode = false,
+  onFrostClarityChange,
   canvasRefOut,
 }) => {
   const internalRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = canvasRefOut ?? internalRef;
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const frostCellsRef = useRef<number[]>(Array(80).fill(1));
 
   const pointerRef = useRef<{
     nx: number;
@@ -55,6 +60,13 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     active: false,
     trail: [],
   });
+
+  useEffect(() => {
+    if (frostMode) {
+      frostCellsRef.current = Array(80).fill(1);
+      onFrostClarityChange?.(0.05);
+    }
+  }, [frostMode, entry.id, onFrostClarityChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -588,6 +600,65 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         }
       }
 
+      // 4D. Слой «Туман памяти» (стирается движением курсора)
+      if (frostMode && !compact) {
+        const cols = 8;
+        const rows = 10;
+        const cells = frostCellsRef.current;
+        const cellW = frameW / cols;
+        const cellH = frameH / rows;
+        let remainSum = 0;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const density = cells[idx] ?? 0;
+            remainSum += density;
+            if (density <= 0.02) continue;
+
+            const cx = frameX + (c + 0.5) * cellW;
+            const cy = frameY + (r + 0.5) * cellH;
+            const rad = Math.max(cellW, cellH) * 0.95;
+            const fg = ctx.createRadialGradient(cx, cy, 4, cx, cy, rad);
+            fg.addColorStop(0, `rgba(248, 244, 236, ${density * 0.92})`);
+            fg.addColorStop(1, `rgba(235, 226, 212, 0)`);
+            ctx.fillStyle = fg;
+            ctx.fillRect(
+              frameX + c * cellW - 20,
+              frameY + r * cellH - 20,
+              cellW + 40,
+              cellH + 40
+            );
+          }
+        }
+
+        const avgRemain = remainSum / (cols * rows);
+        const clarity = Math.min(1, Math.max(0, 1 - avgRemain));
+        if (clarity < 0.82) {
+          ctx.fillStyle = 'rgba(24, 22, 20, 0.78)';
+          ctx.fillRect(
+            frameX + frameW * 0.1,
+            frameY + frameH * 0.45,
+            frameW * 0.8,
+            52
+          );
+          ctx.fillStyle = '#fff8f0';
+          ctx.font = `500 ${Math.round(
+            W * 0.021
+          )}px "JetBrains Mono", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(
+            `Проведите курсором, чтобы стереть туман времени (${Math.round(
+              clarity * 100
+            )}%)`,
+            frameX + frameW * 0.5,
+            frameY + frameH * 0.45 + 26
+          );
+          ctx.textAlign = 'left';
+        }
+      }
+
       ctx.restore();
 
       // 5. Постоянный нижний блок (название папки, трек, подпись, музейный индекс)
@@ -657,7 +728,15 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
 
     rafId = requestAnimationFrame(drawFrame);
     return () => cancelAnimationFrame(rafId);
-  }, [entry, isPlaying, getSpectrum, compact, pinnedPhotoIndex, canvasRef]);
+  }, [
+    entry,
+    isPlaying,
+    getSpectrum,
+    compact,
+    pinnedPhotoIndex,
+    frostMode,
+    canvasRef,
+  ]);
 
   const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -684,6 +763,33 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     });
     if (ptr.trail.length > 28) {
       ptr.trail.shift();
+    }
+
+    if (frostMode) {
+      const cols = 8;
+      const rows = 10;
+      const cells = frostCellsRef.current;
+      let changed = false;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = (c + 0.5) / cols;
+          const cy = (r + 0.5) / rows;
+          const dist = Math.hypot(cx - nx, cy - ny);
+          if (dist < 0.24) {
+            const idx = r * cols + c;
+            const prev = cells[idx];
+            const next = Math.max(0, prev - (0.24 - dist) * 1.45);
+            if (next !== prev) {
+              cells[idx] = next;
+              changed = true;
+            }
+          }
+        }
+      }
+      if (changed && onFrostClarityChange) {
+        const remain = cells.reduce((a, b) => a + b, 0) / cells.length;
+        onFrostClarityChange(Math.min(1, Math.max(0.05, 1 - remain)));
+      }
     }
   };
 
