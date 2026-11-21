@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Folder, Plus, Search } from 'lucide-react';
+import { Folder, Plus, Search, Upload } from 'lucide-react';
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
@@ -8,6 +8,7 @@ interface ArchiveFeedProps {
   entries: DiaryEntry[];
   onSelect: (entry: DiaryEntry) => void;
   onCreateNew: () => void;
+  onImport: (entry: DiaryEntry) => void;
 }
 
 const FILTERS: Array<{ id: 'all' | ArtMovementId; label: string }> = [
@@ -22,10 +23,27 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   entries,
   onSelect,
   onCreateNew,
+  onImport,
 }) => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | ArtMovementId>('all');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as DiaryEntry;
+      if (parsed && parsed.text && parsed.analysis && parsed.photos) {
+        onImport({
+          ...parsed,
+          id: `imported_${Date.now()}`,
+        });
+      }
+    } catch {
+      // ignore invalid files
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -62,10 +80,25 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             onSelect={onSelect}
             compact
           />
-          <button className="btn-primary btn-large" onClick={onCreateNew}>
-            <Plus size={18} />
-            Записать новый день
-          </button>
+          <div className="hero-cta-row">
+            <button className="btn-primary btn-large" onClick={onCreateNew}>
+              <Plus size={18} />
+              Записать новый день
+            </button>
+            <label
+              className="btn-secondary"
+              title="Загрузить папку дня (.atmos.json)"
+            >
+              <Upload size={16} />
+              Импорт
+              <input
+                type="file"
+                accept=".json,.atmos.json,application/json"
+                hidden
+                onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
         </div>
       </div>
 

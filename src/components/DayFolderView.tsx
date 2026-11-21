@@ -9,7 +9,9 @@ import {
   Mic,
   Minimize2,
   Pause,
+  Pencil,
   Play,
+  Share2,
   Sparkles,
   Trash2,
   Volume2,
@@ -23,12 +25,14 @@ import { AtmosphereCompass } from './AtmosphereCompass';
 interface DayFolderViewProps {
   entry: DiaryEntry;
   onBack: () => void;
+  onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: string) => void;
 }
 
 export const DayFolderView: React.FC<DayFolderViewProps> = ({
   entry,
   onBack,
+  onEdit,
   onDelete,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -186,6 +190,18 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     }, 150);
   };
 
+  const handleExportFolder = () => {
+    const blob = new Blob([JSON.stringify(entry, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${entry.analysis.folderName.replace(/\s+/g, '_')}.atmos.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="folder-view view-enter">
       <div
@@ -206,13 +222,31 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         <div className="topbar-right-actions">
           <button
             className="btn-secondary"
+            onClick={() => onEdit(entry)}
+            title="Редактировать день"
+          >
+            <Pencil size={14} />
+            Редактировать
+          </button>
+
+          <button
+            className="btn-secondary"
+            onClick={handleExportFolder}
+            title="Скачать папку дня (.atmos.json), чтобы отправить другу"
+          >
+            <Share2 size={14} />
+            Экспорт папки
+          </button>
+
+          <button
+            className="btn-secondary"
             onClick={() => {
               if (!isPlaying) togglePlay();
               setIsImmersive(true);
             }}
           >
             <Maximize2 size={15} />
-            Режим погружения
+            Погружение
           </button>
 
           <button

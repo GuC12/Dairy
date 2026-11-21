@@ -23,6 +23,7 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<TabView>('archive');
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
+  const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [geminiKey, setGeminiKey] = useState(
     () => localStorage.getItem(KEY_STORAGE) ?? ''
@@ -46,7 +47,14 @@ export function App() {
 
   const handleCreated = async (entry: DiaryEntry) => {
     await saveDay(entry);
-    setEntries((prev) => [entry, ...prev]);
+    setEntries((prev) => {
+      const exists = prev.some((e) => e.id === entry.id);
+      if (exists) {
+        return prev.map((e) => (e.id === entry.id ? entry : e));
+      }
+      return [entry, ...prev];
+    });
+    setEditingEntry(null);
     setSelectedEntry(entry);
     setView('folder');
   };
@@ -101,7 +109,10 @@ export function App() {
 
           <button
             className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-            onClick={() => setView('create')}
+            onClick={() => {
+              setEditingEntry(null);
+              setView('create');
+            }}
           >
             <Plus size={15} />
             Новый день
@@ -137,14 +148,22 @@ export function App() {
               setSelectedEntry(null);
               setView('archive');
             }}
+            onEdit={(entry) => {
+              setEditingEntry(entry);
+              setView('create');
+            }}
             onDelete={handleDelete}
           />
         ) : view === 'create' ? (
           <CreateDayView
             nextIndex={nextIndex}
             geminiApiKey={geminiKey}
+            editingEntry={editingEntry}
             onCreated={handleCreated}
-            onCancel={() => setView('archive')}
+            onCancel={() => {
+              setEditingEntry(null);
+              setView(selectedEntry ? 'folder' : 'archive');
+            }}
           />
         ) : view === 'system' ? (
           <VisualSystemPage />
@@ -155,7 +174,11 @@ export function App() {
               setSelectedEntry(entry);
               setView('folder');
             }}
-            onCreateNew={() => setView('create')}
+            onCreateNew={() => {
+              setEditingEntry(null);
+              setView('create');
+            }}
+            onImport={handleCreated}
           />
         )}
       </main>

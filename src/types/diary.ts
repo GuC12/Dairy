@@ -20,6 +20,8 @@ export interface MusicInput {
   /** 0..1 */
   energy: number;
   url?: string;
+  previewUrl?: string;
+  artworkUrl?: string;
   audioDataUrl?: string;
   fileName?: string;
 }

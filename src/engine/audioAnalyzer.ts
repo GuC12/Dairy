@@ -135,8 +135,12 @@ export class DayAudioController {
       this.analyser.frequencyBinCount
     ) as Uint8Array<ArrayBuffer>;
 
+    const hasAudioSource =
+      (music.mode === 'file' && Boolean(music.audioDataUrl)) ||
+      Boolean(music.previewUrl);
+
     this.masterGain = this.ctx.createGain();
-    this.baseVolume = music.mode === 'file' && music.audioDataUrl ? 0.85 : 0.38;
+    this.baseVolume = hasAudioSource ? 0.85 : 0.38;
     this.masterGain.gain.value = this.baseVolume;
 
     this.streamDest = this.ctx.createMediaStreamDestination();
@@ -147,14 +151,23 @@ export class DayAudioController {
 
     this.isPlaying = true;
 
-    if (music.mode === 'file' && music.audioDataUrl) {
-      const audio = new Audio(music.audioDataUrl);
+    const audioSrc =
+      music.mode === 'file' && music.audioDataUrl
+        ? music.audioDataUrl
+        : music.previewUrl;
+
+    if (audioSrc) {
+      const audio = new Audio(audioSrc);
       audio.loop = true;
       audio.crossOrigin = 'anonymous';
       this.audioEl = audio;
       this.mediaSource = this.ctx.createMediaElementSource(audio);
       this.mediaSource.connect(this.masterGain);
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        if (this.isPlaying && this.synthTimer === null) {
+          this.startProceduralSoundscape(music);
+        }
+      });
       return;
     }
 

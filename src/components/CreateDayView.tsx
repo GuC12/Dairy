@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Check,
   ImagePlus,
   Link2,
   Loader2,
   Music,
+  Search,
   Sparkles,
   Upload,
   Wand2,
@@ -17,11 +19,16 @@ import {
   analyzeLocally,
   suggestMusicForDay,
 } from '../engine/atmosphereEngine';
+import {
+  searchTrackPreviews,
+  type TrackSearchResult,
+} from '../engine/musicSearch';
 import { MemoryCanvas } from './MemoryCanvas';
 
 interface CreateDayViewProps {
   nextIndex: number;
   geminiApiKey?: string;
+  editingEntry?: DiaryEntry | null;
   onCreated: (entry: DiaryEntry) => void;
   onCancel: () => void;
 }
@@ -70,63 +77,70 @@ function createQuickAtmosphericPhoto(seedText: string): string {
 export const CreateDayView: React.FC<CreateDayViewProps> = ({
   nextIndex,
   geminiApiKey,
+  editingEntry,
   onCreated,
   onCancel,
 }) => {
-  const [text, setText] = useState('');
-  const [dateLabel, setDateLabel] = useState(() =>
-    new Date().toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    })
+  const [text, setText] = useState(editingEntry?.text ?? '');
+  const [dateLabel, setDateLabel] = useState(
+    () =>
+      editingEntry?.dateLabel ??
+      new Date().toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
   );
-  const [weather, setWeather] = useState('');
-  const [location, setLocation] = useState('');
-  const [signature, setSignature] = useState('');
+  const [weather, setWeather] = useState(editingEntry?.weather ?? '');
+  const [location, setLocation] = useState(editingEntry?.location ?? '');
+  const [signature, setSignature] = useState(editingEntry?.signature ?? '');
 
-  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [photos, setPhotos] = useState<PhotoItem[]>(editingEntry?.photos ?? []);
   const [isAnalyzingPhotos, setIsAnalyzingPhotos] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const [musicMode, setMusicMode] = useState<'link' | 'file'>('link');
-  const [musicTitle, setMusicTitle] = useState('');
-  const [musicArtist, setMusicArtist] = useState('');
-  const [musicGenre, setMusicGenre] = useState('Indie / Acoustic');
-  const [musicUrl, setMusicUrl] = useState('');
-  const [musicBpm, setMusicBpm] = useState(92);
-  const [musicTonality, setMusicTonality] = useState<'major' | 'minor'>('major');
-  const [musicEnergy, setMusicEnergy] = useState(0.45);
-  const [audioDataUrl, setAudioDataUrl] = useState<string | undefined>(undefined);
-  const [audioFileName, setAudioFileName] = useState<string | undefined>(undefined);
+  const [musicMode, setMusicMode] = useState<'link' | 'file'>(
+    editingEntry?.music.mode ?? 'link'
+  );
+  const [musicTitle, setMusicTitle] = useState(editingEntry?.music.title ?? '');
+  const [musicArtist, setMusicArtist] = useState(
+    editingEntry?.music.artist ?? ''
+  );
+  const [musicGenre, setMusicGenre] = useState(
+    editingEntry?.music.genre ?? 'Indie / Acoustic'
+  );
+  const [musicUrl, setMusicUrl] = useState(editingEntry?.music.url ?? '');
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>(
+    editingEntry?.music.previewUrl
+  );
+  const [artworkUrl, setArtworkUrl] = useState<string | undefined>(
+    editingEntry?.music.artworkUrl
+  );
+  const [musicBpm, setMusicBpm] = useState(editingEntry?.music.bpm ?? 92);
+  const [musicTonality, setMusicTonality] = useState<'major' | 'minor'>(
+    editingEntry?.music.tonality ?? 'major'
+  );
+  const [musicEnergy, setMusicEnergy] = useState(
+    editingEntry?.music.energy ?? 0.45
+  );
+  const [audioDataUrl, setAudioDataUrl] = useState<string | undefined>(
+    editingEntry?.music.audioDataUrl
+  );
+  const [audioFileName, setAudioFileName] = useState<string | undefined>(
+    editingEntry?.music.fileName
+  );
   const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
+
+  const [trackQuery, setTrackQuery] = useState('');
+  const [trackResults, setTrackResults] = useState<TrackSearchResult[]>([]);
+  const [isSearchingTracks, setIsSearchingTracks] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggestingMusic, setIsSuggestingMusic] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAutoPickMusic = async () => {
-    setIsSuggestingMusic(true);
-    setError(null);
-    try {
-      const picked = await suggestMusicForDay(
-        text.trim() || 'Спокойный вечер',
-        photos,
-        geminiApiKey
-      );
-      setMusicMode('link');
-      setMusicArtist(picked.artist);
-      setMusicTitle(picked.title);
-      setMusicGenre(picked.genre);
-      setMusicBpm(picked.bpm);
-      setMusicTonality(picked.tonality);
-      setMusicEnergy(picked.energy);
-      setMusicUrl(picked.url ?? '');
-    } finally {
-      setIsSuggestingMusic(false);
-    }
-  };
+  const displayIndex = editingEntry?.indexNumber ?? nextIndex;
 
-  // Живое превью страницы 4:5 в реальном времени!
   const livePreviewEntry: DiaryEntry = useMemo(() => {
     const previewMusic: MusicInput = {
       mode: musicMode,
@@ -137,18 +151,21 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       tonality: musicTonality,
       energy: musicEnergy,
       url: musicUrl.trim() || undefined,
+      previewUrl,
+      artworkUrl,
       audioDataUrl,
       fileName: audioFileName,
     };
 
     const previewText =
-      text.trim() || 'Напишите о своём дне, чтобы увидеть, как меняется атмосфера...';
+      text.trim() ||
+      'Напишите о своём дне, чтобы увидеть, как меняется атмосфера...';
     const analysis = analyzeLocally(previewText, photos, previewMusic);
 
     return {
-      id: 'live_preview',
-      indexNumber: nextIndex,
-      createdAt: '2026-01-01T00:00:00.000Z',
+      id: editingEntry?.id ?? 'live_preview',
+      indexNumber: displayIndex,
+      createdAt: editingEntry?.createdAt ?? '2026-01-01T00:00:00.000Z',
       dateLabel: dateLabel.trim() || 'Сегодня',
       weather: weather.trim() || undefined,
       location: location.trim() || undefined,
@@ -170,12 +187,15 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     musicArtist,
     musicGenre,
     musicUrl,
+    previewUrl,
+    artworkUrl,
     musicBpm,
     musicTonality,
     musicEnergy,
     audioDataUrl,
     audioFileName,
-    nextIndex,
+    displayIndex,
+    editingEntry,
   ]);
 
   const handlePhotoUpload = async (files: FileList | null) => {
@@ -184,12 +204,16 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     setError(null);
     try {
       const added: PhotoItem[] = [];
-      for (const file of Array.from(files).slice(0, 5)) {
+      for (const file of Array.from(files).slice(0, 6)) {
         if (!file.type.startsWith('image/')) continue;
         const item = await analyzePhotoFile(file);
         added.push(item);
       }
-      setPhotos((prev) => [...prev, ...added].slice(0, 6));
+      if (added.length === 0) {
+        setError('Выберите файлы изображений (JPG, PNG, WebP).');
+      } else {
+        setPhotos((prev) => [...prev, ...added].slice(0, 6));
+      }
     } catch {
       setError('Не удалось прочитать одно из изображений.');
     } finally {
@@ -216,6 +240,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       const { dataUrl, metrics } = await analyzeAudioFile(file);
       setAudioDataUrl(dataUrl);
       setAudioFileName(file.name);
+      setPreviewUrl(undefined);
       setMusicBpm(metrics.bpm);
       setMusicEnergy(metrics.energy);
       if (!musicTitle) {
@@ -228,9 +253,67 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     }
   };
 
+  const handleSearchTracks = async () => {
+    if (!trackQuery.trim()) return;
+    setIsSearchingTracks(true);
+    try {
+      const results = await searchTrackPreviews(trackQuery);
+      setTrackResults(results);
+    } finally {
+      setIsSearchingTracks(false);
+    }
+  };
+
+  const applyTrackResult = (tr: TrackSearchResult) => {
+    setMusicMode('link');
+    setMusicArtist(tr.artist);
+    setMusicTitle(tr.title);
+    setMusicGenre(tr.genre);
+    setMusicUrl(tr.trackUrl);
+    setPreviewUrl(tr.previewUrl);
+    setArtworkUrl(tr.artworkUrl);
+    setMusicBpm(tr.estimatedBpm);
+    setMusicTonality(tr.estimatedTonality);
+    setMusicEnergy(tr.estimatedEnergy);
+    setTrackResults([]);
+  };
+
+  const handleAutoPickMusic = async () => {
+    setIsSuggestingMusic(true);
+    setError(null);
+    try {
+      const picked = await suggestMusicForDay(
+        text.trim() || 'Спокойный вечер',
+        photos,
+        geminiApiKey
+      );
+      setMusicMode('link');
+      setMusicArtist(picked.artist);
+      setMusicTitle(picked.title);
+      setMusicGenre(picked.genre);
+      setMusicBpm(picked.bpm);
+      setMusicTonality(picked.tonality);
+      setMusicEnergy(picked.energy);
+      setMusicUrl(picked.url ?? '');
+
+      // Попробуем подтянуть реальное 30-сек превью для подобранного трека
+      const previews = await searchTrackPreviews(
+        `${picked.artist} ${picked.title}`
+      );
+      if (previews[0]?.previewUrl) {
+        setPreviewUrl(previews[0].previewUrl);
+        setArtworkUrl(previews[0].artworkUrl);
+      } else {
+        setPreviewUrl(undefined);
+      }
+    } finally {
+      setIsSuggestingMusic(false);
+    }
+  };
+
   const fillQuickExample = async () => {
     const sampleText =
-      'Вечером после дождя вышли на набережную. Город отражался в лужах жёлтыми фонарями, мы купили горячие булочки с корицей и слушали старый винил через один наушник.';
+      'Вечером после дождя вышли на набережную. Город отражался в лужах жёлтыми фонарями, мы купили горячие булочки с корицей и слушали старый джаз через один наушник.';
     setText(sampleText);
     setWeather('+6°C, после дождя');
     setLocation('Набережная');
@@ -243,6 +326,12 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     setMusicTonality('minor');
     setMusicEnergy(0.32);
     setMusicUrl('https://open.spotify.com/search/Chet%20Baker%20Almost%20Blue');
+
+    const previews = await searchTrackPreviews('Chet Baker Almost Blue');
+    if (previews[0]?.previewUrl) {
+      setPreviewUrl(previews[0].previewUrl);
+      setArtworkUrl(previews[0].artworkUrl);
+    }
 
     if (photos.length === 0) {
       const dataUrl = createQuickAtmosphericPhoto(sampleText);
@@ -258,11 +347,13 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       return;
     }
     if (photos.length === 0) {
-      setError('Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).');
+      setError(
+        'Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).'
+      );
       return;
     }
     if (!musicTitle.trim() && musicMode === 'link') {
-      setError('Укажите название песни или загрузите аудиофайл.');
+      setError('Укажите название песни, найдите через поиск или загрузите аудиофайл.');
       return;
     }
 
@@ -279,6 +370,8 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         tonality: musicTonality,
         energy: musicEnergy,
         url: musicMode === 'link' ? musicUrl.trim() || undefined : undefined,
+        previewUrl: musicMode === 'link' ? previewUrl : undefined,
+        artworkUrl: musicMode === 'link' ? artworkUrl : undefined,
         audioDataUrl: musicMode === 'file' ? audioDataUrl : undefined,
         fileName: audioFileName,
       };
@@ -291,9 +384,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       );
 
       const newEntry: DiaryEntry = {
-        id: `day_${Date.now()}`,
-        indexNumber: nextIndex,
-        createdAt: '2026-01-01T00:00:00.000Z',
+        id: editingEntry?.id ?? `day_${Date.now()}`,
+        indexNumber: displayIndex,
+        createdAt: editingEntry?.createdAt ?? new Date().toISOString(),
         dateLabel: dateLabel.trim() || 'Сегодня',
         weather: weather.trim() || undefined,
         location: location.trim() || undefined,
@@ -317,15 +410,19 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       <div className="create-header">
         <div>
           <div className="font-mono section-kicker">
-            LIVE STUDIO // DAY {String(nextIndex).padStart(2, '0')}
+            LIVE STUDIO // DAY {String(displayIndex).padStart(2, '0')}
           </div>
-          <h1 className="font-serif create-title">Сохранить атмосферу дня</h1>
+          <h1 className="font-serif create-title">
+            {editingEntry ? 'Редактировать день' : 'Сохранить атмосферу дня'}
+          </h1>
         </div>
         <div className="create-header-actions">
-          <button type="button" className="btn-ghost" onClick={fillQuickExample}>
-            <Sparkles size={15} />
-            Заполнить пример
-          </button>
+          {!editingEntry && (
+            <button type="button" className="btn-ghost" onClick={fillQuickExample}>
+              <Sparkles size={15} />
+              Заполнить пример
+            </button>
+          )}
           <button type="button" className="btn-ghost" onClick={onCancel}>
             Отмена
           </button>
@@ -388,11 +485,11 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
             </div>
           </div>
 
-          {/* 2. Фотографии */}
+          {/* 2. Фотографии с Drag-and-Drop */}
           <div className="form-card">
             <div className="form-card-head">
               <label className="form-label font-mono">
-                02 // ФОТОГРАФИИ ДНЯ (1–6 ШТ.)
+                02 // РЕАЛЬНЫЕ ФОТОГРАФИИ ДНЯ (1–6 ШТ.)
               </label>
               <div className="photo-head-actions">
                 {isAnalyzingPhotos && (
@@ -410,9 +507,23 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               </div>
             </div>
 
-            <label className="upload-dropzone">
+            <label
+              className={`upload-dropzone ${isDragging ? 'is-dragging' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                handlePhotoUpload(e.dataTransfer.files);
+              }}
+            >
               <ImagePlus size={20} />
-              <span>Загрузить фото (цвета и свет определятся автоматически)</span>
+              <span>
+                Перетащите фото сюда или нажмите для выбора (JPG, PNG, WebP)
+              </span>
               <input
                 type="file"
                 accept="image/*"
@@ -461,7 +572,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                   className={`mode-tab ${musicMode === 'link' ? 'active' : ''}`}
                   onClick={() => setMusicMode('link')}
                 >
-                  <Link2 size={14} /> Ссылка / Трек
+                  <Link2 size={14} /> Поиск / Ссылка
                 </button>
                 <button
                   type="button"
@@ -486,6 +597,66 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 </button>
               </div>
             </div>
+
+            {musicMode === 'link' && (
+              <div className="track-search-wrap">
+                <div className="track-search-bar">
+                  <Search size={15} />
+                  <input
+                    type="text"
+                    placeholder="Найти реальный трек с 30-сек превью (например: Frank Sinatra, Кино, Billie Eilish)..."
+                    value={trackQuery}
+                    onChange={(e) => setTrackQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearchTracks();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleSearchTracks}
+                    disabled={isSearchingTracks}
+                  >
+                    {isSearchingTracks ? 'Ищем...' : 'Найти'}
+                  </button>
+                </div>
+
+                {trackResults.length > 0 && (
+                  <div className="track-results-list">
+                    {trackResults.map((tr, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="track-result-item"
+                        onClick={() => applyTrackResult(tr)}
+                      >
+                        {tr.artworkUrl && (
+                          <img src={tr.artworkUrl} alt={tr.title} />
+                        )}
+                        <div className="track-result-info">
+                          <div className="track-result-title">
+                            {tr.artist} — {tr.title}
+                          </div>
+                          <div className="track-result-sub font-mono">
+                            {tr.genre} · ~{tr.estimatedBpm} BPM · 30s превью
+                          </div>
+                        </div>
+                        <Check size={15} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {previewUrl && (
+                  <div className="preview-audio-badge font-mono">
+                    ♪ Подключён официальный 30-сек фрагмент трека
+                  </div>
+                )}
+              </div>
+            )}
 
             {musicMode === 'file' && (
               <label className="upload-dropzone upload-audio">
@@ -538,7 +709,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               </div>
               {musicMode === 'link' && (
                 <div>
-                  <label className="mini-label font-mono">Ссылка (Spotify / YouTube)</label>
+                  <label className="mini-label font-mono">
+                    Ссылка (Spotify / YouTube / Apple)
+                  </label>
                   <input
                     type="url"
                     className="input-field"
@@ -612,7 +785,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               ) : (
                 <>
                   <Sparkles size={18} />
-                  Сохранить воспоминание и папку дня
+                  {editingEntry
+                    ? 'Сохранить изменения'
+                    : 'Сохранить воспоминание и папку дня'}
                 </>
               )}
             </button>

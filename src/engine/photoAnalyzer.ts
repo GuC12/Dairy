@@ -147,23 +147,21 @@ function resizeToDataUrl(img: HTMLImageElement, maxSide = 1100): string {
 }
 
 export async function analyzePhotoFile(file: File): Promise<PhotoItem> {
-  const rawUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(objectUrl);
+    const optimizedUrl = resizeToDataUrl(img, 1200);
+    const metrics = extractColorMetrics(img);
 
-  const img = await loadImage(rawUrl);
-  const optimizedUrl = resizeToDataUrl(img);
-  const metrics = extractColorMetrics(img);
-
-  return {
-    id: `ph_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    dataUrl: optimizedUrl,
-    name: file.name,
-    ...metrics,
-  };
+    return {
+      id: `ph_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      dataUrl: optimizedUrl,
+      name: file.name,
+      ...metrics,
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export async function analyzeDataUrl(dataUrl: string, name: string): Promise<PhotoItem> {
