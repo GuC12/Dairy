@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClerkProvider } from '@clerk/clerk-react';
 import {
   BookOpen,
@@ -7,6 +7,7 @@ import {
   LogOut,
   Palette,
   Plus,
+  Sparkles,
   UserCheck,
   UserPlus,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ import {
 } from './components/BackdropCanvas';
 import { AuthModal } from './components/AuthModal';
 import { ClerkBridge } from './components/ClerkBridge';
+import { WelcomeLanding } from './components/WelcomeLanding';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
@@ -38,11 +40,11 @@ const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
   { id: 'turrell', label: 'Turrell Dawn' },
 ];
 
-const SESSION_USER_KEY = 'atmos_active_session_user';
+const SESSION_USER_KEY = 'yourdiary_active_session_user';
 
 export function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<TabView>('archive');
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
@@ -53,20 +55,20 @@ export function App() {
 
   const [authCfg, setAuthCfg] = useState(() => getAuthConfig());
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [activeUser, setActiveUser] = useState<AppUserProfile | null>(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_USER_KEY);
-      return raw ? (JSON.parse(raw) as AppUserProfile) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [activeUser, setActiveUser] = useState<AppUserProfile | null>(null);
   const [cloudSynced, setCloudSynced] = useState(false);
 
-  const currentUserId = activeUser?.id ?? 'guest';
+  const currentUserId = activeUser?.id ?? null;
 
+  // Загружаем только личные дневники вошедшего пользователя
   useEffect(() => {
     let cancelled = false;
+    if (!currentUserId) {
+      setEntries([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
     loadAllDays(currentUserId).then((days) => {
       if (!cancelled) {
         setEntries(days);
@@ -78,7 +80,7 @@ export function App() {
     };
   }, [currentUserId]);
 
-  // Облачная синхронизация записей с Supabase при входе пользователя
+  // Облачная синхронизация записей с Supabase для текущего аккаунта
   useEffect(() => {
     if (!activeUser || !authCfg.hasSupabase) return;
     let cancelled = false;
@@ -104,11 +106,6 @@ export function App() {
             (a, b) => b.indexNumber - a.indexNumber
           );
         });
-      } else {
-        // Если в облаке Supabase у пользователя ещё пусто — загружаем туда текущие дни
-        for (const item of entries) {
-          await upsertCloudDay(activeUser.id, item);
-        }
       }
       if (!cancelled) setCloudSynced(true);
     };
@@ -117,7 +114,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeUser, authCfg.hasSupabase, entries]);
+  }, [activeUser, authCfg.hasSupabase]);
 
   const handleUserAuthenticated = useCallback((user: AppUserProfile | null) => {
     setActiveUser((prev) => {
@@ -132,11 +129,13 @@ export function App() {
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
     } else {
       localStorage.removeItem(SESSION_USER_KEY);
+      setEntries([]);
       setCloudSynced(false);
     }
   }, []);
 
   const handleCreated = async (entry: DiaryEntry) => {
+    if (!currentUserId) return;
     await saveDay(entry, currentUserId);
     if (activeUser && authCfg.hasSupabase) {
       upsertCloudDay(activeUser.id, entry).catch(() => {});
@@ -154,6 +153,7 @@ export function App() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!currentUserId) return;
     await deleteDay(id, currentUserId);
     if (activeUser && authCfg.hasSupabase) {
       deleteCloudDay(activeUser.id, id).catch(() => {});
@@ -184,6 +184,42 @@ export function App() {
 
   const isDarkWorld = world === 'indigo';
 
+  // Динамическое оформление Clerk под текущую тему сайта (Velvet Indigo или Turrell Dawn)
+  const clerkAppearance = useMemo(
+    () => ({
+      variables: isDarkWorld
+        ? {
+            colorPrimary: '#f59e0b',
+            colorBackground: '#1b173d',
+            colorText: '#fdfcff',
+            colorTextSecondary: '#c9c6e0',
+            colorInputBackground: '#120f2c',
+            colorInputText: '#fdfcff',
+            colorNeutral: '#fdfcff',
+            borderRadius: '14px',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+          }
+        : {
+            colorPrimary: '#e11d48',
+            colorBackground: '#fff9f3',
+            colorText: '#17161c',
+            colorTextSecondary: '#484654',
+            colorInputBackground: '#ffffff',
+            colorInputText: '#17161c',
+            colorNeutral: '#17161c',
+            borderRadius: '14px',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+          },
+      elements: {
+        card: isDarkWorld
+          ? 'yourdiary-clerk-card-dark'
+          : 'yourdiary-clerk-card-light',
+        headerTitle: 'font-serif',
+      },
+    }),
+    [isDarkWorld]
+  );
+
   const content = (
     <div
       className={`app-shell ${
@@ -210,34 +246,45 @@ export function App() {
           }}
         >
           <span className="brand-dot animate-pulse-dot" />
-          <span className="brand-name font-mono">ATMOS_</span>
-          <span className="brand-sub font-mono">// GENESIS.ARTTECH</span>
+          <span className="brand-name font-mono">YourDiary</span>
+          <span className="brand-sub font-mono">// PERSONAL MEMORY VAULT</span>
         </div>
 
         <nav className="topnav">
-          <button
-            className={`nav-btn ${
-              view === 'archive' || view === 'folder' ? 'active' : ''
-            }`}
-            onClick={() => {
-              setSelectedEntry(null);
-              setView('archive');
-            }}
-          >
-            <FolderKanban size={15} />
-            Архив дней ({entries.length})
-          </button>
+          {activeUser ? (
+            <>
+              <button
+                className={`nav-btn ${
+                  view === 'archive' || view === 'folder' ? 'active' : ''
+                }`}
+                onClick={() => {
+                  setSelectedEntry(null);
+                  setView('archive');
+                }}
+              >
+                <FolderKanban size={15} />
+                Мой дневник ({entries.length})
+              </button>
 
-          <button
-            className={`nav-btn ${view === 'create' ? 'active' : ''}`}
-            onClick={() => {
-              setEditingEntry(null);
-              setView('create');
-            }}
-          >
-            <Plus size={15} />
-            Новый день
-          </button>
+              <button
+                className={`nav-btn ${view === 'create' ? 'active' : ''}`}
+                onClick={() => {
+                  setEditingEntry(null);
+                  setView('create');
+                }}
+              >
+                <Plus size={15} />
+                Новый день
+              </button>
+            </>
+          ) : (
+            <button
+              className={`nav-btn ${view === 'archive' ? 'active' : ''}`}
+              onClick={() => setView('archive')}
+            >
+              <Sparkles size={15} />О проекте YourDiary
+            </button>
+          )}
 
           <button
             className={`nav-btn ${view === 'system' ? 'active' : ''}`}
@@ -257,7 +304,7 @@ export function App() {
               const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
               setWorld(next.id);
             }}
-            title="Переключить художественный мир фона"
+            title="Переключить тему сайта и окна Clerk"
           >
             <Palette size={14} />
             <span>
@@ -286,7 +333,6 @@ export function App() {
                   }
                 >
                   <Cloud size={12} />
-                  Supabase
                 </span>
               )}
               <button
@@ -312,9 +358,13 @@ export function App() {
       </header>
 
       <main className="main-container">
-        {isLoading ? (
+        {view === 'system' ? (
+          <VisualSystemPage sampleEntry={entries[0]} />
+        ) : !activeUser ? (
+          <WelcomeLanding onOpenSystem={() => setView('system')} />
+        ) : isLoading ? (
           <div className="loading-state font-mono">
-            Синтез хроматического архива и папок дней...
+            Загрузка вашего личного дневника...
           </div>
         ) : view === 'folder' && selectedEntry ? (
           <DayFolderView
@@ -372,8 +422,6 @@ export function App() {
               setView(selectedEntry ? 'folder' : 'archive');
             }}
           />
-        ) : view === 'system' ? (
-          <VisualSystemPage sampleEntry={entries[0]} />
         ) : (
           <ArchiveFeed
             entries={entries}
@@ -410,11 +458,11 @@ export function App() {
       </main>
 
       <footer className="app-footer font-mono">
-        <span>GENESIS HACKATHON // ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
+        <span>YOURDIARY // GENESIS ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
         <span>
           {activeUser
-            ? `USER: ${activeUser.fullName.toUpperCase()} // CLERK & SUPABASE`
-            : '4:5 POLYCHROME VISUAL SYSTEM'}
+            ? `DIARY OWNER: ${activeUser.fullName.toUpperCase()}`
+            : '4:5 PERSONAL VISUAL SYSTEM'}
         </span>
       </footer>
 
@@ -436,7 +484,12 @@ export function App() {
 
   if (authCfg.hasClerk) {
     return (
-      <ClerkProvider publishableKey={authCfg.clerkKey}>{content}</ClerkProvider>
+      <ClerkProvider
+        publishableKey={authCfg.clerkKey}
+        appearance={clerkAppearance}
+      >
+        {content}
+      </ClerkProvider>
     );
   }
 

@@ -2428,3 +2428,146 @@
   align-items: center;
   gap: 6px;
 }
+
+/* === YourDiary Welcome Landing & Clerk Custom Theme === */
+.welcome-landing {
+  padding: 12px 0 36px;
+}
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 410px;
+  gap: 42px;
+  align-items: center;
+}
+
+.welcome-title {
+  margin: 0 0 16px;
+  font-size: clamp(38px, 4.6vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.welcome-lead {
+  margin: 0 0 28px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 620px;
+}
+
+.welcome-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 30px;
+}
+
+.welcome-step-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.22s ease, border-color 0.22s ease;
+}
+
+.welcome-step-card:hover {
+  transform: translateX(4px);
+  border-color: var(--border-hover);
+}
+
+.step-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--accent-warm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome-step-card h3 {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.welcome-step-card p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.welcome-cta-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.welcome-showcase-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(22px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--card-shadow);
+}
+
+.showcase-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.showcase-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-warm);
+}
+
+.showcase-mode-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+/* Custom Clerk Modal & Popover Theme Integration */
+.yourdiary-clerk-card-dark,
+.cl-card.yourdiary-clerk-card-dark {
+  background: linear-gradient(160deg, #1d1942 0%, #13112e 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 28px 72px rgba(6, 5, 20, 0.78) !important;
+  color: #fdfcff !important;
+}
+
+.yourdiary-clerk-card-light,
+.cl-card.yourdiary-clerk-card-light {
+  background: linear-gradient(160deg, #fffaf4 0%, #f4effa 100%) !important;
+  border: 1px solid rgba(24, 24, 34, 0.16) !important;
+  box-shadow: 0 24px 64px rgba(32, 24, 54, 0.18) !important;
+  color: #17161c !important;
+}
+
+@media (max-width: 960px) {
+  .welcome-grid {
+    grid-template-columns: 1fr;
+  }
+}

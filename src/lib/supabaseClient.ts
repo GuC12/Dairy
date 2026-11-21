@@ -3,6 +3,9 @@ import type { DiaryEntry } from '../types/diary';
 
 const DEFAULT_CLERK_PUB_KEY =
   'pk_test_cGxlYXNlZC1vcG9zc3VtLTUzMzcuY2xlcmsuYWNjb3VudHMuZGV2JA';
+const DEFAULT_SUPABASE_URL = 'https://vzpmqffzvmxzwotxcurb.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6cG1xZmZ6dm14endvdHhjdXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyNzUwOTIsImV4cCI6MjExMDg1MTA5Mn0.OPxZLQh6nYKtBSJ3nMZGwEdTRHlcoRhnJC633d4Uc5A';
 
 const STORAGE_KEYS = {
   CLERK_KEY: 'atmos_clerk_pub_key',
@@ -18,11 +21,11 @@ export function getAuthConfig() {
   const supabaseUrl =
     (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||
     localStorage.getItem(STORAGE_KEYS.SB_URL)?.trim() ||
-    '';
+    DEFAULT_SUPABASE_URL;
   const supabaseAnonKey =
     (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ||
     localStorage.getItem(STORAGE_KEYS.SB_ANON)?.trim() ||
-    '';
+    DEFAULT_SUPABASE_ANON_KEY;
 
   return {
     clerkKey,

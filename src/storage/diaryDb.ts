@@ -1,27 +1,34 @@
 import type { DiaryEntry } from '../types/diary';
-import { createUserPhotoDays } from '../engine/seedDays';
 
 const DB_VERSION = 1;
 const STORE_NAME = 'days';
-const OWNER_USER_KEY = 'atmos_primary_owner_user_id';
+const RESET_FLAG_KEY = 'yourdiary_clean_reset_v1';
 
-function getDbNameForUser(userId?: string | null): string {
-  const clean = userId?.trim();
-  if (!clean || clean === 'guest') {
-    return 'atmos_diary_db_v4';
+function cleanupOldDatabasesOnce(): void {
+  try {
+    if (localStorage.getItem(RESET_FLAG_KEY)) return;
+    const oldDbs = [
+      'atmos_diary_db',
+      'atmos_diary_db_v2',
+      'atmos_diary_db_v3',
+      'atmos_diary_db_v4',
+    ];
+    for (const name of oldDbs) {
+      indexedDB.deleteDatabase(name);
+    }
+    localStorage.removeItem('atmos_primary_owner_user_id');
+    localStorage.setItem(RESET_FLAG_KEY, 'true');
+  } catch {
+    // ignore
   }
-  return `atmos_diary_user_${clean}`;
 }
 
-function isPrimaryOwnerOrGuest(userId?: string | null): boolean {
+function getDbNameForUser(userId?: string | null): string | null {
   const clean = userId?.trim();
-  if (!clean || clean === 'guest') return true;
-  const existingOwner = localStorage.getItem(OWNER_USER_KEY);
-  if (!existingOwner) {
-    localStorage.setItem(OWNER_USER_KEY, clean);
-    return true;
+  if (!clean || clean === 'guest') {
+    return null;
   }
-  return existingOwner === clean;
+  return `yourdiary_v1_user_${clean}`;
 }
 
 function openNamedDb(name: string): Promise<IDBDatabase> {
@@ -56,36 +63,19 @@ async function readEntriesFromDb(name: string): Promise<DiaryEntry[]> {
 }
 
 export async function loadAllDays(userId?: string | null): Promise<DiaryEntry[]> {
+  cleanupOldDatabasesOnce();
   const dbName = getDbNameForUser(userId);
-  const shouldSeedOwnerPhotos = isPrimaryOwnerOrGuest(userId);
+  if (!dbName) return [];
 
   try {
     const currentItems = await readEntriesFromDb(dbName);
-    const userMap = new Map<string, DiaryEntry>();
-
-    for (const item of currentItems) {
-      if (!item.id.startsWith('seed_day_')) {
-        userMap.set(item.id, item);
-      }
-    }
-
-    // Только для гостя или основного аккаунта владельца подгружаем его 5 фото-дней
-    if (shouldSeedOwnerPhotos) {
-      const hasUploadedPhotos = Array.from(userMap.keys()).some((k) =>
-        k.startsWith('user_photo_day_')
-      );
-      if (!hasUploadedPhotos) {
-        const photoDays = await createUserPhotoDays();
-        for (const pDay of photoDays) {
-          userMap.set(pDay.id, pDay);
-          await saveDay(pDay, userId);
-        }
-      }
-    }
-
-    const userEntries = Array.from(userMap.values()).sort((a, b) =>
-      a.createdAt.localeCompare(b.createdAt)
-    );
+    const userEntries = currentItems
+      .filter(
+        (item) =>
+          !item.id.startsWith('seed_day_') &&
+          !item.id.startsWith('user_photo_day_')
+      )
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
     const normalized: DiaryEntry[] = [];
     for (let i = 0; i < userEntries.length; i++) {
@@ -101,10 +91,6 @@ export async function loadAllDays(userId?: string | null): Promise<DiaryEntry[]>
 
     return normalized.sort((a, b) => b.indexNumber - a.indexNumber);
   } catch {
-    if (shouldSeedOwnerPhotos) {
-      const photoDays = await createUserPhotoDays();
-      return photoDays.sort((a, b) => b.indexNumber - a.indexNumber);
-    }
     return [];
   }
 }
@@ -114,6 +100,7 @@ export async function saveDay(
   userId?: string | null
 ): Promise<void> {
   const dbName = getDbNameForUser(userId);
+  if (!dbName) return;
   try {
     const db = await openNamedDb(dbName);
     await new Promise<void>((resolve, reject) => {
@@ -125,7 +112,7 @@ export async function saveDay(
     });
     db.close();
   } catch {
-    // ignore storage errors in restricted modes
+    // ignore
   }
 }
 
@@ -134,6 +121,7 @@ export async function deleteDay(
   userId?: string | null
 ): Promise<void> {
   const dbName = getDbNameForUser(userId);
+  if (!dbName) return;
   try {
     const db = await openNamedDb(dbName);
     await new Promise<void>((resolve, reject) => {

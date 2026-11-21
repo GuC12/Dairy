@@ -42,7 +42,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
     ctx.fillStyle = '#18181b';
     ctx.font = '600 15px "JetBrains Mono", monospace';
     ctx.fillText(
-      `ATMOS_ // ГОБЕЛЕН ПЕРИОДА (${count} ДНЕЙ В ЕДИНОМ СПЕКТРЕ)`,
+      `YourDiary // ГОБЕЛЕН ПЕРИОДА (${count} ДНЕЙ В ЕДИНОМ СПЕКТРЕ)`,
       pad,
       44
     );
