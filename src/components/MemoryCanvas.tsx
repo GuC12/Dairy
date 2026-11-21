@@ -62,12 +62,17 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     trail: [],
   });
 
+  const onFrostClarityChangeRef = useRef(onFrostClarityChange);
+  useEffect(() => {
+    onFrostClarityChangeRef.current = onFrostClarityChange;
+  }, [onFrostClarityChange]);
+
   useEffect(() => {
     if (frostMode) {
       frostCellsRef.current = Array(80).fill(1);
-      onFrostClarityChange?.(0.05);
+      onFrostClarityChangeRef.current?.(0.05);
     }
-  }, [frostMode, entry.id, onFrostClarityChange]);
+  }, [frostMode, entry.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -651,11 +656,12 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(
-            `Проведите курсором, чтобы стереть туман времени (${Math.round(
+            `Проведите курсором, чтобы стереть туман (${Math.round(
               clarity * 100
             )}%)`,
             frameX + frameW * 0.5,
-            frameY + frameH * 0.45 + 26
+            frameY + frameH * 0.45 + 26,
+            frameW * 0.76
           );
           ctx.textAlign = 'left';
         }
@@ -803,11 +809,20 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           }
         }
       }
-      if (changed && onFrostClarityChange) {
+      if (changed && onFrostClarityChangeRef.current) {
         const remain = cells.reduce((a, b) => a + b, 0) / cells.length;
-        onFrostClarityChange(Math.min(1, Math.max(0.05, 1 - remain)));
+        onFrostClarityChangeRef.current(Math.min(1, Math.max(0.05, 1 - remain)));
       }
     }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    handlePointerMove({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+    } as React.MouseEvent<HTMLCanvasElement>);
   };
 
   const handlePointerLeave = () => {
@@ -818,6 +833,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     <canvas
       ref={canvasRef}
       onMouseMove={handlePointerMove}
+      onTouchMove={handleTouchMove}
       onMouseLeave={handlePointerLeave}
       style={{
         width: '100%',
