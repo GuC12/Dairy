@@ -109,7 +109,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeUser, authCfg.hasSupabase, entries.length]);
+  }, [activeUser, authCfg.hasSupabase, entries]);
 
   const handleUserAuthenticated = useCallback((user: AppUserProfile | null) => {
     setActiveUser(user);
