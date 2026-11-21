@@ -105,7 +105,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           <div className="profile-hero-info">
-            <div className="profile-username font-serif">@{user.fullName}</div>
+            <div className="profile-username font-serif">{user.fullName}</div>
             {user.email && user.email.includes('@') && (
               <div className="profile-meta-line font-mono">
                 <span>

@@ -31,11 +31,9 @@ export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
     if (!isLoaded) return;
     if (isSignedIn && user) {
       const email = user.primaryEmailAddress?.emailAddress ?? '';
-      const resolvedUsername =
-        user.username ||
-        user.firstName ||
-        email.split('@')[0] ||
-        'author';
+      const rawUsername = (user.username || user.firstName || '').replace(/^@+/, '').trim();
+      const emailName = email.includes('@') ? email.split('@')[0] : email;
+      const resolvedUsername = rawUsername || emailName || 'author';
 
       const profile: AppUserProfile = {
         id: user.id,

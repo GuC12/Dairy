@@ -330,7 +330,7 @@ export function App() {
                 )}
               >
                 <User size={14} />
-                <span>@{activeUser.fullName}</span>
+                <span>{activeUser.fullName}</span>
               </button>
 
               {authCfg.hasSupabase && (
