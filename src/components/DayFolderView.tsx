@@ -361,11 +361,6 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
               <span className="pill pill-outline">
                 {entry.analysis.movementTitle}
               </span>
-              <span className="pill pill-mono">
-                {entry.analysis.engineUsed === 'gemini-2.5-flash'
-                  ? 'Gemini 2.5 Flash + Rules'
-                  : 'Local Atmosphere Engine'}
-              </span>
             </div>
 
             <p className="entry-prose">{entry.text}</p>

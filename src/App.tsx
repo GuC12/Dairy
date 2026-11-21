@@ -128,11 +128,12 @@ export function App() {
         </nav>
 
         <button
-          className="btn-ghost settings-btn font-mono"
+          className="btn-ghost settings-btn"
           onClick={() => setShowSettings(true)}
+          title="Настройки"
         >
           <Settings2 size={15} />
-          {geminiKey ? 'Gemini ON' : 'Local Engine'}
+          Настройки
         </button>
       </header>
 
