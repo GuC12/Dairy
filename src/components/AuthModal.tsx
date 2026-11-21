@@ -575,17 +575,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </>
                   )}
                 </button>
-
-                <div className="auth-footer-prompt font-mono">
-                  <span>{t('Уже есть аккаунт?', 'Already have an account?')}</span>{' '}
-                  <button
-                    type="button"
-                    className="auth-link-btn"
-                    onClick={() => handleSwitchMode('signin')}
-                  >
-                    {t('Войти', 'Sign In')}
-                  </button>
-                </div>
               </form>
             ) : (
               <form onSubmit={handleVerifyEmailSubmit} className="auth-form-body">
@@ -726,17 +715,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </>
               )}
             </button>
-
-            <div className="auth-footer-prompt font-mono">
-              <span>{t('Нет аккаунта?', "Don't have an account?")}</span>{' '}
-              <button
-                type="button"
-                className="auth-link-btn"
-                onClick={() => handleSwitchMode('signup')}
-              >
-                {t('Зарегистрироваться', 'Sign Up')}
-              </button>
-            </div>
           </form>
         )}
 
@@ -787,17 +765,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </>
                   )}
                 </button>
-
-                <div className="auth-footer-prompt font-mono">
-                  <span>{t('Вспомнили пароль?', 'Remember your password?')}</span>{' '}
-                  <button
-                    type="button"
-                    className="auth-link-btn"
-                    onClick={() => handleSwitchMode('signin')}
-                  >
-                    {t('Войти', 'Sign In')}
-                  </button>
-                </div>
               </form>
             ) : (
               <form onSubmit={handleResetVerifySubmit} className="auth-form-body">
