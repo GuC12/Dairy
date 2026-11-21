@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../types/diary';
 import type { SpectrumMetrics } from '../engine/audioAnalyzer';
 
@@ -47,6 +47,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   const internalRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = canvasRefOut ?? internalRef;
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const [imagesVersion, setImagesVersion] = useState(0);
   const frostCellsRef = useRef<number[]>(Array(80).fill(1));
 
   const pointerRef = useRef<{
@@ -85,6 +86,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       }
       if (!cancelled) {
         imagesRef.current = imgs;
+        setImagesVersion((v) => v + 1);
       }
     };
 
@@ -721,7 +723,15 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.fillText(stampText, W - pad - sw, musicY + Math.round(W * 0.052));
       ctx.globalAlpha = 1;
 
-      if (!compact || isPlaying || ptr.active || ptr.trail.length > 0) {
+      const waitingForPhotos =
+        entry.photos.length > 0 && imagesRef.current.length === 0;
+      if (
+        !compact ||
+        isPlaying ||
+        ptr.active ||
+        ptr.trail.length > 0 ||
+        waitingForPhotos
+      ) {
         rafId = requestAnimationFrame(drawFrame);
       }
     };
@@ -735,6 +745,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     compact,
     pinnedPhotoIndex,
     frostMode,
+    imagesVersion,
     canvasRef,
   ]);
 
