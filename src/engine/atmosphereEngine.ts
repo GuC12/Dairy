@@ -548,3 +548,25 @@ export async function suggestMusicForDay(
     return fallback;
   }
 }
+
+export function inferMusicMetricsFromContext(
+  title: string,
+  genre: string,
+  dayText: string
+): { bpm: number; tonality: 'major' | 'minor'; energy: number } {
+  const combined = `${title} ${genre} ${dayText}`.toLowerCase();
+
+  if (/(electronic|idm|techno|house|dance|rock|metal|срочн|дедлайн|ночь в офисе|бегом)/.test(combined)) {
+    return { bpm: 128, tonality: 'minor', energy: 0.84 };
+  }
+  if (/(ambient|classical|sad|blue|rain|туман|дожд|тишин|груст|утро|море)/.test(combined)) {
+    return { bpm: 72, tonality: 'minor', energy: 0.3 };
+  }
+  if (/(jazz|soul|acoustic|folk|парк|какао|осень|тёпл|тепл|уют|винил|любл)/.test(combined)) {
+    return { bpm: 78, tonality: 'major', energy: 0.38 };
+  }
+  if (/(indie|pop|funk|disco|прогулк|город|смеял|трамва|солн)/.test(combined)) {
+    return { bpm: 106, tonality: 'major', energy: 0.6 };
+  }
+  return { bpm: 92, tonality: 'major', energy: 0.48 };
+}

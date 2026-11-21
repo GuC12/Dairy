@@ -17,6 +17,7 @@ import { analyzeAudioFile } from '../engine/audioAnalyzer';
 import {
   analyzeDayAtmosphere,
   analyzeLocally,
+  inferMusicMetricsFromContext,
   suggestMusicForDay,
 } from '../engine/atmosphereEngine';
 import {
@@ -123,6 +124,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
   const [musicEnergy, setMusicEnergy] = useState(
     editingEntry?.music.energy ?? 0.45
   );
+  const [hasExactMetrics, setHasExactMetrics] = useState(
+    Boolean(editingEntry)
+  );
   const [audioDataUrl, setAudioDataUrl] = useState<string | undefined>(
     editingEntry?.music.audioDataUrl
   );
@@ -141,15 +145,26 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
   const displayIndex = editingEntry?.indexNumber ?? nextIndex;
 
+  const inferredMusic = useMemo(
+    () => inferMusicMetricsFromContext(musicTitle, musicGenre, text),
+    [musicTitle, musicGenre, text]
+  );
+
+  const effectiveBpm = hasExactMetrics ? musicBpm : inferredMusic.bpm;
+  const effectiveTonality = hasExactMetrics
+    ? musicTonality
+    : inferredMusic.tonality;
+  const effectiveEnergy = hasExactMetrics ? musicEnergy : inferredMusic.energy;
+
   const livePreviewEntry: DiaryEntry = useMemo(() => {
     const previewMusic: MusicInput = {
       mode: musicMode,
       title: musicTitle.trim() || audioFileName || 'Атмосфера дня',
       artist: musicArtist.trim(),
       genre: musicGenre.trim() || 'Ambient',
-      bpm: musicBpm,
-      tonality: musicTonality,
-      energy: musicEnergy,
+      bpm: effectiveBpm,
+      tonality: effectiveTonality,
+      energy: effectiveEnergy,
       url: musicUrl.trim() || undefined,
       previewUrl,
       artworkUrl,
@@ -189,9 +204,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     musicUrl,
     previewUrl,
     artworkUrl,
-    musicBpm,
-    musicTonality,
-    musicEnergy,
+    effectiveBpm,
+    effectiveTonality,
+    effectiveEnergy,
     audioDataUrl,
     audioFileName,
     displayIndex,
@@ -243,6 +258,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       setPreviewUrl(undefined);
       setMusicBpm(metrics.bpm);
       setMusicEnergy(metrics.energy);
+      setHasExactMetrics(true);
       if (!musicTitle) {
         setMusicTitle(file.name.replace(/\.[^.]+$/, ''));
       }
@@ -275,6 +291,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     setMusicBpm(tr.estimatedBpm);
     setMusicTonality(tr.estimatedTonality);
     setMusicEnergy(tr.estimatedEnergy);
+    setHasExactMetrics(true);
     setTrackResults([]);
   };
 
@@ -294,6 +311,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       setMusicBpm(picked.bpm);
       setMusicTonality(picked.tonality);
       setMusicEnergy(picked.energy);
+      setHasExactMetrics(true);
       setMusicUrl(picked.url ?? '');
 
       // Попробуем подтянуть реальное 30-сек превью для подобранного трека
@@ -325,6 +343,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     setMusicBpm(72);
     setMusicTonality('minor');
     setMusicEnergy(0.32);
+    setHasExactMetrics(true);
     setMusicUrl('https://open.spotify.com/search/Chet%20Baker%20Almost%20Blue');
 
     const previews = await searchTrackPreviews('Chet Baker Almost Blue');
@@ -352,29 +371,41 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       );
       return;
     }
-    if (!musicTitle.trim() && musicMode === 'link') {
-      setError('Укажите название песни, найдите через поиск или загрузите аудиофайл.');
-      return;
-    }
-
     setIsGenerating(true);
     setError(null);
 
     try {
-      const music: MusicInput = {
-        mode: musicMode,
-        title: musicTitle.trim() || audioFileName || 'Без названия',
-        artist: musicArtist.trim(),
-        genre: musicGenre.trim() || 'Ambient',
-        bpm: musicBpm,
-        tonality: musicTonality,
-        energy: musicEnergy,
-        url: musicMode === 'link' ? musicUrl.trim() || undefined : undefined,
-        previewUrl: musicMode === 'link' ? previewUrl : undefined,
-        artworkUrl: musicMode === 'link' ? artworkUrl : undefined,
-        audioDataUrl: musicMode === 'file' ? audioDataUrl : undefined,
-        fileName: audioFileName,
-      };
+      let music: MusicInput;
+      if (!musicTitle.trim() && !audioDataUrl) {
+        const autoPicked = await suggestMusicForDay(
+          text.trim(),
+          photos,
+          geminiApiKey
+        );
+        const previews = await searchTrackPreviews(
+          `${autoPicked.artist} ${autoPicked.title}`
+        );
+        music = {
+          ...autoPicked,
+          previewUrl: previews[0]?.previewUrl,
+          artworkUrl: previews[0]?.artworkUrl,
+        };
+      } else {
+        music = {
+          mode: musicMode,
+          title: musicTitle.trim() || audioFileName || 'Без названия',
+          artist: musicArtist.trim(),
+          genre: musicGenre.trim() || 'Ambient',
+          bpm: effectiveBpm,
+          tonality: effectiveTonality,
+          energy: effectiveEnergy,
+          url: musicMode === 'link' ? musicUrl.trim() || undefined : undefined,
+          previewUrl: musicMode === 'link' ? previewUrl : undefined,
+          artworkUrl: musicMode === 'link' ? artworkUrl : undefined,
+          audioDataUrl: musicMode === 'file' ? audioDataUrl : undefined,
+          fileName: audioFileName,
+        };
+      }
 
       const analysis = await analyzeDayAtmosphere(
         text.trim(),
@@ -723,49 +754,16 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               )}
             </div>
 
-            <div className="music-sliders-row">
-              <div>
-                <label className="mini-label font-mono">Темп: {musicBpm} BPM</label>
-                <input
-                  type="range"
-                  min={55}
-                  max={165}
-                  value={musicBpm}
-                  onChange={(e) => setMusicBpm(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="mini-label font-mono">
-                  Энергия: {Math.round(musicEnergy * 100)}%
-                </label>
-                <input
-                  type="range"
-                  min={0.1}
-                  max={1}
-                  step={0.05}
-                  value={musicEnergy}
-                  onChange={(e) => setMusicEnergy(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="mini-label font-mono">Тональность</label>
-                <div className="tonality-toggle">
-                  <button
-                    type="button"
-                    className={musicTonality === 'major' ? 'active' : ''}
-                    onClick={() => setMusicTonality('major')}
-                  >
-                    Мажор
-                  </button>
-                  <button
-                    type="button"
-                    className={musicTonality === 'minor' ? 'active' : ''}
-                    onClick={() => setMusicTonality('minor')}
-                  >
-                    Минор
-                  </button>
-                </div>
-              </div>
+            <div className="auto-music-summary font-mono">
+              <Sparkles size={13} />
+              <span>
+                Авто-анализ: {effectiveBpm} BPM ·{' '}
+                {effectiveTonality === 'minor' ? 'Минор' : 'Мажор'} · Энергия{' '}
+                {Math.round(effectiveEnergy * 100)}%
+                {!musicTitle.trim() && !audioDataUrl
+                  ? ' (если песню не указывать — подберём автоматически)'
+                  : ''}
+              </span>
             </div>
           </div>
 

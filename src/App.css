@@ -1573,3 +1573,21 @@
   color: #ffb895;
   font-size: 11.5px;
 }
+
+.auto-music-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.auto-music-summary svg {
+  color: var(--accent-warm);
+  flex-shrink: 0;
+}
