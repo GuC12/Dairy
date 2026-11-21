@@ -1,4 +1,5 @@
 import type { DiaryEntry } from '../types/diary';
+import { createUserPhotoDays } from '../engine/seedDays';
 
 const DB_NAME = 'atmos_diary_db_v3';
 const LEGACY_DBS = ['atmos_diary_db_v2', 'atmos_diary_db'];
@@ -40,7 +41,7 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
   try {
     const currentItems = await readEntriesFromDb(DB_NAME);
 
-    // Удаляем все предзагруженные демо-примеры (seed_day_*) из текущей БД
+    // Удаляем старые процедурные демо-примеры (seed_day_*)
     for (const item of currentItems) {
       if (item.id.startsWith('seed_day_')) {
         await deleteDay(item.id);
@@ -54,7 +55,7 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
       }
     }
 
-    // Проверяем также предыдущие версии БД, если пользователь создавал запись там
+    // Проверяем предыдущие версии БД на случай других созданных пользователем записей
     for (const legacyName of LEGACY_DBS) {
       const legacyItems = await readEntriesFromDb(legacyName);
       for (const item of legacyItems) {
@@ -65,7 +66,19 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
       }
     }
 
-    // Сортируем пользовательские записи по времени создания и нумеруем с 1
+    // Если 5 дней с реальными фотографиями пользователя ещё не добавлены — создаём их
+    const hasUploadedPhotos = Array.from(userMap.keys()).some((k) =>
+      k.startsWith('user_photo_day_')
+    );
+    if (!hasUploadedPhotos) {
+      const photoDays = await createUserPhotoDays();
+      for (const pDay of photoDays) {
+        userMap.set(pDay.id, pDay);
+        await saveDay(pDay);
+      }
+    }
+
+    // Сортируем записи по времени создания и нумеруем по порядку
     const userEntries = Array.from(userMap.values()).sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt)
     );
@@ -84,7 +97,8 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
 
     return normalized.sort((a, b) => b.indexNumber - a.indexNumber);
   } catch {
-    return [];
+    const photoDays = await createUserPhotoDays();
+    return photoDays.sort((a, b) => b.indexNumber - a.indexNumber);
   }
 }
 
