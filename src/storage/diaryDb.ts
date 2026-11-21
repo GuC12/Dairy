@@ -1,10 +1,28 @@
 import type { DiaryEntry } from '../types/diary';
 import { createUserPhotoDays } from '../engine/seedDays';
 
-const DB_NAME = 'atmos_diary_db_v4';
-const LEGACY_DBS = ['atmos_diary_db_v3', 'atmos_diary_db_v2', 'atmos_diary_db'];
 const DB_VERSION = 1;
 const STORE_NAME = 'days';
+const OWNER_USER_KEY = 'atmos_primary_owner_user_id';
+
+function getDbNameForUser(userId?: string | null): string {
+  const clean = userId?.trim();
+  if (!clean || clean === 'guest') {
+    return 'atmos_diary_db_v4';
+  }
+  return `atmos_diary_user_${clean}`;
+}
+
+function isPrimaryOwnerOrGuest(userId?: string | null): boolean {
+  const clean = userId?.trim();
+  if (!clean || clean === 'guest') return true;
+  const existingOwner = localStorage.getItem(OWNER_USER_KEY);
+  if (!existingOwner) {
+    localStorage.setItem(OWNER_USER_KEY, clean);
+    return true;
+  }
+  return existingOwner === clean;
+}
 
 function openNamedDb(name: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -37,52 +55,34 @@ async function readEntriesFromDb(name: string): Promise<DiaryEntry[]> {
   }
 }
 
-export async function loadAllDays(): Promise<DiaryEntry[]> {
+export async function loadAllDays(userId?: string | null): Promise<DiaryEntry[]> {
+  const dbName = getDbNameForUser(userId);
+  const shouldSeedOwnerPhotos = isPrimaryOwnerOrGuest(userId);
+
   try {
-    const currentItems = await readEntriesFromDb(DB_NAME);
-
-    // Удаляем старые процедурные демо-примеры (seed_day_*)
-    for (const item of currentItems) {
-      if (item.id.startsWith('seed_day_')) {
-        await deleteDay(item.id);
-      }
-    }
-
+    const currentItems = await readEntriesFromDb(dbName);
     const userMap = new Map<string, DiaryEntry>();
+
     for (const item of currentItems) {
       if (!item.id.startsWith('seed_day_')) {
         userMap.set(item.id, item);
       }
     }
 
-    // Проверяем предыдущие версии БД на случай других созданных пользователем записей
-    for (const legacyName of LEGACY_DBS) {
-      const legacyItems = await readEntriesFromDb(legacyName);
-      for (const item of legacyItems) {
-        if (
-          !item.id.startsWith('seed_day_') &&
-          !item.id.startsWith('user_photo_day_') &&
-          !userMap.has(item.id)
-        ) {
-          userMap.set(item.id, item);
-          await saveDay(item);
+    // Только для гостя или основного аккаунта владельца подгружаем его 5 фото-дней
+    if (shouldSeedOwnerPhotos) {
+      const hasUploadedPhotos = Array.from(userMap.keys()).some((k) =>
+        k.startsWith('user_photo_day_')
+      );
+      if (!hasUploadedPhotos) {
+        const photoDays = await createUserPhotoDays();
+        for (const pDay of photoDays) {
+          userMap.set(pDay.id, pDay);
+          await saveDay(pDay, userId);
         }
       }
     }
 
-    // Если 5 дней с реальными фотографиями пользователя ещё не добавлены — создаём их
-    const hasUploadedPhotos = Array.from(userMap.keys()).some((k) =>
-      k.startsWith('user_photo_day_')
-    );
-    if (!hasUploadedPhotos) {
-      const photoDays = await createUserPhotoDays();
-      for (const pDay of photoDays) {
-        userMap.set(pDay.id, pDay);
-        await saveDay(pDay);
-      }
-    }
-
-    // Сортируем записи по времени создания и нумеруем по порядку
     const userEntries = Array.from(userMap.values()).sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt)
     );
@@ -95,20 +95,27 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
       };
       normalized.push(updated);
       if (userEntries[i].indexNumber !== i + 1) {
-        await saveDay(updated);
+        await saveDay(updated, userId);
       }
     }
 
     return normalized.sort((a, b) => b.indexNumber - a.indexNumber);
   } catch {
-    const photoDays = await createUserPhotoDays();
-    return photoDays.sort((a, b) => b.indexNumber - a.indexNumber);
+    if (shouldSeedOwnerPhotos) {
+      const photoDays = await createUserPhotoDays();
+      return photoDays.sort((a, b) => b.indexNumber - a.indexNumber);
+    }
+    return [];
   }
 }
 
-export async function saveDay(entry: DiaryEntry): Promise<void> {
+export async function saveDay(
+  entry: DiaryEntry,
+  userId?: string | null
+): Promise<void> {
+  const dbName = getDbNameForUser(userId);
   try {
-    const db = await openNamedDb(DB_NAME);
+    const db = await openNamedDb(dbName);
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
@@ -122,9 +129,13 @@ export async function saveDay(entry: DiaryEntry): Promise<void> {
   }
 }
 
-export async function deleteDay(id: string): Promise<void> {
+export async function deleteDay(
+  id: string,
+  userId?: string | null
+): Promise<void> {
+  const dbName = getDbNameForUser(userId);
   try {
-    const db = await openNamedDb(DB_NAME);
+    const db = await openNamedDb(dbName);
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);

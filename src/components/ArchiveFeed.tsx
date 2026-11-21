@@ -353,7 +353,23 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
 
       {filtered.length === 0 ? (
         <div className="empty-archive">
-          <p>По вашему запросу папок не найдено.</p>
+          {entries.length === 0 ? (
+            <>
+              <h3 className="font-serif" style={{ fontSize: 28, margin: '0 0 8px' }}>
+                Ваш личный дневник готов к первой записи
+              </h3>
+              <p style={{ margin: '0 0 18px' }}>
+                У каждого аккаунта свой изолированный архив воспоминаний.
+                Расскажите, как прошёл ваш день, добавьте фотографии и песню.
+              </p>
+              <button className="btn-primary btn-large" onClick={onCreateNew}>
+                <Plus size={18} />
+                Записать свой первый день
+              </button>
+            </>
+          ) : (
+            <p>По вашему запросу папок не найдено.</p>
+          )}
         </div>
       ) : (
         <div

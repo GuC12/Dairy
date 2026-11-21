@@ -1,6 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { DiaryEntry } from '../types/diary';
 
+const DEFAULT_CLERK_PUB_KEY =
+  'pk_test_cGxlYXNlZC1vcG9zc3VtLTUzMzcuY2xlcmsuYWNjb3VudHMuZGV2JA';
+
 const STORAGE_KEYS = {
   CLERK_KEY: 'atmos_clerk_pub_key',
   SB_URL: 'atmos_supabase_url',
@@ -11,7 +14,7 @@ export function getAuthConfig() {
   const clerkKey =
     (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined)?.trim() ||
     localStorage.getItem(STORAGE_KEYS.CLERK_KEY)?.trim() ||
-    '';
+    DEFAULT_CLERK_PUB_KEY;
   const supabaseUrl =
     (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||
     localStorage.getItem(STORAGE_KEYS.SB_URL)?.trim() ||

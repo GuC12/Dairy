@@ -63,12 +63,20 @@ export function App() {
   });
   const [cloudSynced, setCloudSynced] = useState(false);
 
+  const currentUserId = activeUser?.id ?? 'guest';
+
   useEffect(() => {
-    loadAllDays().then((days) => {
-      setEntries(days);
-      setIsLoading(false);
+    let cancelled = false;
+    loadAllDays(currentUserId).then((days) => {
+      if (!cancelled) {
+        setEntries(days);
+        setIsLoading(false);
+      }
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
 
   // Облачная синхронизация записей с Supabase при входе пользователя
   useEffect(() => {
@@ -83,7 +91,7 @@ export function App() {
         const mergedMap = new Map<string, DiaryEntry>();
         for (const ce of cloudEntries) {
           mergedMap.set(ce.id, ce);
-          await saveDay(ce);
+          await saveDay(ce, activeUser.id);
         }
         setEntries((prev) => {
           for (const localItem of prev) {
@@ -112,7 +120,14 @@ export function App() {
   }, [activeUser, authCfg.hasSupabase, entries]);
 
   const handleUserAuthenticated = useCallback((user: AppUserProfile | null) => {
-    setActiveUser(user);
+    setActiveUser((prev) => {
+      if (prev?.id !== user?.id) {
+        setSelectedEntry(null);
+        setEditingEntry(null);
+        setView('archive');
+      }
+      return user;
+    });
     if (user) {
       localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
     } else {
@@ -122,7 +137,7 @@ export function App() {
   }, []);
 
   const handleCreated = async (entry: DiaryEntry) => {
-    await saveDay(entry);
+    await saveDay(entry, currentUserId);
     if (activeUser && authCfg.hasSupabase) {
       upsertCloudDay(activeUser.id, entry).catch(() => {});
     }
@@ -139,7 +154,7 @@ export function App() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteDay(id);
+    await deleteDay(id, currentUserId);
     if (activeUser && authCfg.hasSupabase) {
       deleteCloudDay(activeUser.id, id).catch(() => {});
     }
@@ -254,7 +269,6 @@ export function App() {
             <ClerkBridge
               hasSupabase={authCfg.hasSupabase}
               onUserChange={handleUserAuthenticated}
-              onOpenKeysModal={() => setShowAuthModal(true)}
             />
           ) : activeUser ? (
             <div className="user-pill-box">

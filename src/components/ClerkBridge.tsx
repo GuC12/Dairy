@@ -7,7 +7,7 @@ import {
   UserButton,
   useUser,
 } from '@clerk/clerk-react';
-import { Cloud, KeyRound, LogIn, UserPlus } from 'lucide-react';
+import { Cloud, LogIn, UserPlus } from 'lucide-react';
 import {
   syncUserProfileToSupabase,
   type AppUserProfile,
@@ -16,13 +16,11 @@ import {
 interface ClerkBridgeProps {
   hasSupabase: boolean;
   onUserChange: (user: AppUserProfile | null) => void;
-  onOpenKeysModal: () => void;
 }
 
 export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
   hasSupabase,
   onUserChange,
-  onOpenKeysModal,
 }) => {
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -34,6 +32,7 @@ export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
         email: user.primaryEmailAddress?.emailAddress ?? '',
         fullName:
           user.fullName ||
+          user.firstName ||
           user.username ||
           user.primaryEmailAddress?.emailAddress?.split('@')[0] ||
           'Автор дневника',
@@ -66,27 +65,24 @@ export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
 
       <SignedIn>
         <div className="user-pill-box">
+          {user && (
+            <span className="user-badge font-mono">
+              {user.firstName ||
+                user.username ||
+                user.primaryEmailAddress?.emailAddress?.split('@')[0]}
+            </span>
+          )}
           {hasSupabase && (
             <span
               className="cloud-sync-dot font-mono"
               title="Синхронизировано с Supabase"
             >
               <Cloud size={12} />
-              Supabase
             </span>
           )}
           <UserButton />
         </div>
       </SignedIn>
-
-      <button
-        type="button"
-        className="btn-ghost btn-icon-only"
-        onClick={onOpenKeysModal}
-        title="Настройки ключей Clerk & Supabase"
-      >
-        <KeyRound size={14} />
-      </button>
     </div>
   );
 };
