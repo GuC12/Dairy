@@ -12,10 +12,8 @@ import './App.css';
 type TabView = 'archive' | 'create' | 'system' | 'folder';
 
 const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
-  { id: 'turrell', label: 'Turrell Dawn' },
-  { id: 'monet', label: 'Monet Garden' },
-  { id: 'genesis', label: 'Genesis Studio' },
   { id: 'indigo', label: 'Velvet Indigo' },
+  { id: 'turrell', label: 'Turrell Dawn' },
 ];
 
 export function App() {
@@ -27,7 +25,7 @@ export function App() {
   const [hoveredEntry, setHoveredEntry] = useState<DiaryEntry | null>(null);
   const [autoImmersive, setAutoImmersive] = useState(false);
   const [autoReel, setAutoReel] = useState(false);
-  const [world, setWorld] = useState<WorldThemeId>('turrell');
+  const [world, setWorld] = useState<WorldThemeId>('indigo');
 
   useEffect(() => {
     loadAllDays().then((days) => {

@@ -1,4 +1,28 @@
 :root,
+.theme-prism {
+  --bg-page: #191636;
+  --bg-card: rgba(30, 27, 62, 0.68);
+  --bg-elevated: rgba(38, 34, 76, 0.88);
+  --bg-input: rgba(22, 19, 48, 0.78);
+  --bg-glass: rgba(25, 22, 54, 0.74);
+
+  --border-subtle: rgba(255, 255, 255, 0.14);
+  --border-hover: rgba(255, 255, 255, 0.34);
+  --border-strong: #f8fafc;
+
+  --text-primary: #fdfcff;
+  --text-secondary: #c9c6e0;
+  --text-muted: #928eb0;
+
+  --accent-warm: #f59e0b;
+  --accent-cobalt: #38bdf8;
+  --accent-emerald: #34d399;
+  --accent-magenta: #ec4899;
+  --accent-soft: rgba(245, 158, 11, 0.18);
+
+  --card-shadow: 0 22px 52px rgba(10, 8, 28, 0.45);
+}
+
 .theme-editorial {
   --bg-page: #fff8f1;
   --bg-card: rgba(255, 255, 255, 0.72);
@@ -23,30 +47,6 @@
   --card-shadow:
     0 20px 48px rgba(45, 32, 66, 0.08),
     0 4px 14px rgba(45, 32, 66, 0.04);
-}
-
-.theme-prism {
-  --bg-page: #191636;
-  --bg-card: rgba(30, 27, 62, 0.68);
-  --bg-elevated: rgba(38, 34, 76, 0.88);
-  --bg-input: rgba(22, 19, 48, 0.78);
-  --bg-glass: rgba(25, 22, 54, 0.74);
-
-  --border-subtle: rgba(255, 255, 255, 0.14);
-  --border-hover: rgba(255, 255, 255, 0.34);
-  --border-strong: #f8fafc;
-
-  --text-primary: #fdfcff;
-  --text-secondary: #c9c6e0;
-  --text-muted: #928eb0;
-
-  --accent-warm: #f59e0b;
-  --accent-cobalt: #38bdf8;
-  --accent-emerald: #34d399;
-  --accent-magenta: #ec4899;
-  --accent-soft: rgba(245, 158, 11, 0.18);
-
-  --card-shadow: 0 22px 52px rgba(10, 8, 28, 0.45);
 }
 
 :root {

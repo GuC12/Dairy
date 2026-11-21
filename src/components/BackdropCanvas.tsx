@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { hexToRgb } from '../engine/photoAnalyzer';
 
-export type WorldThemeId = 'turrell' | 'monet' | 'genesis' | 'indigo';
+export type WorldThemeId = 'indigo' | 'turrell';
 
 interface BackdropCanvasProps {
   world: WorldThemeId;
@@ -12,25 +12,15 @@ const WORLD_BASE_PALETTES: Record<
   WorldThemeId,
   { bgTop: string; bgBottom: string; orbs: [string, string, string, string] }
 > = {
-  turrell: {
-    bgTop: '#fff8f1',
-    bgBottom: '#eff6ff',
-    orbs: ['#fda4af', '#fcd34d', '#7dd3fc', '#c4b5fd'],
-  },
-  monet: {
-    bgTop: '#fef9ec',
-    bgBottom: '#ecfdf5',
-    orbs: ['#fbbf24', '#6ee7b7', '#f9a8d4', '#93c5fd'],
-  },
-  genesis: {
-    bgTop: '#fdf4ff',
-    bgBottom: '#f0f9ff',
-    orbs: ['#e879f9', '#38bdf8', '#34d399', '#fb923c'],
-  },
   indigo: {
     bgTop: '#191636',
     bgBottom: '#112240',
     orbs: ['#8b5cf6', '#ec4899', '#0ea5e9', '#f59e0b'],
+  },
+  turrell: {
+    bgTop: '#fff8f1',
+    bgBottom: '#eff6ff',
+    orbs: ['#fda4af', '#fcd34d', '#7dd3fc', '#c4b5fd'],
   },
 };
 
