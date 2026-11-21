@@ -62,13 +62,8 @@ export function App() {
 
   // Загружаем только личные дневники вошедшего пользователя
   useEffect(() => {
+    if (!currentUserId) return;
     let cancelled = false;
-    if (!currentUserId) {
-      setEntries([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
     loadAllDays(currentUserId).then((days) => {
       if (!cancelled) {
         setEntries(days);
