@@ -7,6 +7,7 @@ interface MemoryCanvasProps {
   isPlaying?: boolean;
   getSpectrum?: () => SpectrumMetrics;
   compact?: boolean;
+  pinnedPhotoIndex?: number | null;
   canvasRefOut?: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -15,6 +16,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   isPlaying = false,
   getSpectrum,
   compact = false,
+  pinnedPhotoIndex = null,
   canvasRefOut,
 }) => {
   const internalRef = useRef<HTMLCanvasElement | null>(null);
@@ -131,15 +133,21 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.clip();
 
       if (imgs.length > 0) {
+        const isPinned =
+          pinnedPhotoIndex !== null &&
+          pinnedPhotoIndex >= 0 &&
+          pinnedPhotoIndex < imgs.length;
         const cycleDur = Math.max(2.6, 7.5 / visualParams.rhythmSpeed);
         const totalIdx = elapsed / cycleDur;
-        const curIdx = Math.floor(totalIdx) % imgs.length;
+        const curIdx = isPinned
+          ? pinnedPhotoIndex
+          : Math.floor(totalIdx) % imgs.length;
         const nextIdx = (curIdx + 1) % imgs.length;
         const phase = totalIdx - Math.floor(totalIdx);
 
         const fadeStart = movement === 'constructivism' ? 0.92 : 0.72;
         const alphaNext =
-          imgs.length > 1 && phase > fadeStart
+          !isPinned && imgs.length > 1 && phase > fadeStart
             ? (phase - fadeStart) / (1 - fadeStart)
             : 0;
 
@@ -437,7 +445,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
 
     rafId = requestAnimationFrame(drawFrame);
     return () => cancelAnimationFrame(rafId);
-  }, [entry, isPlaying, getSpectrum, compact, canvasRef]);
+  }, [entry, isPlaying, getSpectrum, compact, pinnedPhotoIndex, canvasRef]);
 
   return (
     <canvas

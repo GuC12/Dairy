@@ -18,6 +18,7 @@ export function App() {
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [hoveredEntry, setHoveredEntry] = useState<DiaryEntry | null>(null);
+  const [autoImmersive, setAutoImmersive] = useState(false);
   const [theme, setTheme] = useState<GalleryTheme>('prism');
 
   useEffect(() => {
@@ -52,6 +53,10 @@ export function App() {
     entries.length > 0
       ? Math.max(...entries.map((e) => e.indexNumber)) + 1
       : 1;
+
+  const selectedIdx = selectedEntry
+    ? entries.findIndex((e) => e.id === selectedEntry.id)
+    : -1;
 
   // Активный источник цветовой ауры сайта: открытый день, наведённый день или 4 стихии
   const activeAuraEntry = selectedEntry ?? hoveredEntry;
@@ -152,12 +157,30 @@ export function App() {
           </div>
         ) : view === 'folder' && selectedEntry ? (
           <DayFolderView
+            key={selectedEntry.id}
             entry={selectedEntry}
+            hasPrev={selectedIdx > 0}
+            hasNext={selectedIdx >= 0 && selectedIdx < entries.length - 1}
+            initialImmersive={autoImmersive}
+            onPrev={() => {
+              if (selectedIdx > 0) {
+                setAutoImmersive(false);
+                setSelectedEntry(entries[selectedIdx - 1]);
+              }
+            }}
+            onNext={() => {
+              if (selectedIdx >= 0 && selectedIdx < entries.length - 1) {
+                setAutoImmersive(false);
+                setSelectedEntry(entries[selectedIdx + 1]);
+              }
+            }}
             onBack={() => {
+              setAutoImmersive(false);
               setSelectedEntry(null);
               setView('archive');
             }}
             onEdit={(entry) => {
+              setAutoImmersive(false);
               setEditingEntry(entry);
               setView('create');
             }}
@@ -179,7 +202,16 @@ export function App() {
           <ArchiveFeed
             entries={entries}
             onSelect={(entry) => {
+              setAutoImmersive(false);
               setSelectedEntry(entry);
+              setView('folder');
+            }}
+            onOpenRandomCapsule={() => {
+              if (entries.length === 0) return;
+              const randomEntry =
+                entries[Math.floor(Math.random() * entries.length)];
+              setAutoImmersive(true);
+              setSelectedEntry(randomEntry);
               setView('folder');
             }}
             onCreateNew={() => {

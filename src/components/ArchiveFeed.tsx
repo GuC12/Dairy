@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Disc3, Folder, Pause, Play, Plus, Search, Sparkles, Upload } from 'lucide-react';
+import {
+  Disc3,
+  Download,
+  Folder,
+  Pause,
+  Play,
+  Plus,
+  Search,
+  Sparkles,
+  Upload,
+} from 'lucide-react';
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
@@ -8,6 +18,7 @@ import { AtmosphereCompass } from './AtmosphereCompass';
 interface ArchiveFeedProps {
   entries: DiaryEntry[];
   onSelect: (entry: DiaryEntry) => void;
+  onOpenRandomCapsule: () => void;
   onCreateNew: () => void;
   onImport: (entry: DiaryEntry) => void;
   onHoverEntry?: (entry: DiaryEntry | null) => void;
@@ -35,6 +46,7 @@ const MOVEMENT_SHORT: Record<ArtMovementId, { tag: string; color: string }> = {
 export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   entries,
   onSelect,
+  onOpenRandomCapsule,
   onCreateNew,
   onImport,
   onHoverEntry,
@@ -71,16 +83,31 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as DiaryEntry;
-      if (parsed && parsed.text && parsed.analysis && parsed.photos) {
-        onImport({
-          ...parsed,
-          id: `imported_${Date.now()}`,
-        });
+      const parsed = JSON.parse(text) as DiaryEntry | DiaryEntry[];
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of list) {
+        if (item && item.text && item.analysis && item.photos) {
+          onImport({
+            ...item,
+            id: item.id || `imported_${Date.now()}`,
+          });
+        }
       }
     } catch {
       // ignore invalid files
     }
+  };
+
+  const handleExportAll = () => {
+    const blob = new Blob([JSON.stringify(entries, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `atmos_diary_backup_${entries.length}_days.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const filtered = useMemo(() => {
@@ -181,11 +208,38 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
               <Plus size={18} />
               Записать новый день
             </button>
+          </div>
+          <div className="hero-secondary-row">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                audioRef.current?.stop();
+                setPlayingId(null);
+                onOpenRandomCapsule();
+              }}
+              disabled={entries.length === 0}
+              title="Открыть случайное воспоминание в полноэкранном режиме погружения"
+            >
+              <Sparkles size={15} />
+              Капсула времени
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleExportAll}
+              title="Скачать полный бэкап всего дневника (.json)"
+            >
+              <Download size={15} />
+              Бэкап
+            </button>
+
             <label
               className="btn-secondary"
-              title="Загрузить папку дня (.atmos.json)"
+              title="Загрузить папку дня или полный бэкап (.json)"
             >
-              <Upload size={16} />
+              <Upload size={15} />
               Импорт
               <input
                 type="file"

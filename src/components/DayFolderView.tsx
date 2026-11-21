@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   ExternalLink,
   Film,
@@ -16,14 +18,21 @@ import {
   Trash2,
   Volume2,
   VolumeX,
+  X,
+  ZoomIn,
 } from 'lucide-react';
-import type { DiaryEntry } from '../types/diary';
+import type { DiaryEntry, PhotoItem } from '../types/diary';
 import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
 
 interface DayFolderViewProps {
   entry: DiaryEntry;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  initialImmersive?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
   onBack: () => void;
   onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: string) => void;
@@ -31,16 +40,23 @@ interface DayFolderViewProps {
 
 export const DayFolderView: React.FC<DayFolderViewProps> = ({
   entry,
+  hasPrev = false,
+  hasNext = false,
+  initialImmersive = false,
+  onPrev,
+  onNext,
   onBack,
   onEdit,
   onDelete,
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(initialImmersive);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isImmersive, setIsImmersive] = useState(false);
+  const [isImmersive, setIsImmersive] = useState(initialImmersive);
   const [isRecording, setIsRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
   const [bars, setBars] = useState<number[]>(() => Array(16).fill(0.08));
+  const [pinnedPhotoIndex, setPinnedPhotoIndex] = useState<number | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
 
   const audioCtrlRef = useRef<DayAudioController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -48,13 +64,35 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   useEffect(() => {
     const ctrl = new DayAudioController();
     audioCtrlRef.current = ctrl;
+    if (initialImmersive) {
+      ctrl.start(entry.music);
+    }
     return () => {
       ctrl.stop();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     };
-  }, [entry.id]);
+  }, [entry.id, entry.music, initialImmersive]);
+
+  // Горячие клавиши: стрелки влево/вправо для листания дневника и Escape
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (lightboxPhoto) setLightboxPhoto(null);
+        else if (isImmersive) setIsImmersive(false);
+        return;
+      }
+      if (lightboxPhoto || isImmersive) return;
+      if (e.key === 'ArrowLeft' && hasPrev && onPrev) {
+        onPrev();
+      } else if (e.key === 'ArrowRight' && hasNext && onNext) {
+        onNext();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hasPrev, hasNext, onPrev, onNext, lightboxPhoto, isImmersive]);
 
   // Обновляем мини-спектрометр при воспроизведении
   useEffect(() => {
@@ -128,7 +166,6 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || isRecording || typeof MediaRecorder === 'undefined') return;
 
-    // Если звук не включён — включим его, чтобы клип был со звуком
     let startedHere = false;
     if (!isPlaying && audioCtrlRef.current) {
       audioCtrlRef.current.start(entry.music);
@@ -209,10 +246,35 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         style={{ backgroundColor: entry.analysis.palette.accent }}
       />
       <div className="folder-topbar">
-        <button className="btn-ghost" onClick={onBack}>
-          <ArrowLeft size={16} />
-          Назад в архив
-        </button>
+        <div className="folder-nav-left">
+          <button className="btn-ghost" onClick={onBack}>
+            <ArrowLeft size={16} />
+            Архив
+          </button>
+
+          <div className="day-pager">
+            <button
+              type="button"
+              className="btn-ghost pager-btn"
+              disabled={!hasPrev}
+              onClick={onPrev}
+              title="Предыдущий день (стрелка ←)"
+            >
+              <ChevronLeft size={16} />
+              Пред.
+            </button>
+            <button
+              type="button"
+              className="btn-ghost pager-btn"
+              disabled={!hasNext}
+              onClick={onNext}
+              title="Следующий день (стрелка →)"
+            >
+              След.
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
 
         <div className="folder-path font-mono">
           <FolderOpen size={15} />
@@ -266,6 +328,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
           <MemoryCanvas
             entry={entry}
             isPlaying={isPlaying}
+            pinnedPhotoIndex={pinnedPhotoIndex}
             getSpectrum={() =>
               audioCtrlRef.current?.getSpectrumMetrics() ?? {
                 bass: 0,
@@ -372,9 +435,22 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             )}
           </div>
 
-          {/* Музыка и исходные фото в папке */}
+          {/* Музыка и интерактивные исходные фото в папке */}
           <div className="detail-card">
-            <h3 className="section-label font-mono">СОДЕРЖИМОЕ ПАПКИ ДНЯ</h3>
+            <div className="section-label-row">
+              <h3 className="section-label font-mono">
+                СОДЕРЖИМОЕ ПАПКИ ДНЯ ({entry.photos.length} ФОТО)
+              </h3>
+              {pinnedPhotoIndex !== null && (
+                <button
+                  type="button"
+                  className="btn-ghost font-mono"
+                  onClick={() => setPinnedPhotoIndex(null)}
+                >
+                  Вернуть авто-слайдшоу
+                </button>
+              )}
+            </div>
 
             <div className="music-box">
               <div>
@@ -401,21 +477,44 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             </div>
 
             <div className="photos-strip">
-              {entry.photos.map((ph) => (
-                <div key={ph.id} className="photo-thumb-card">
-                  <img src={ph.dataUrl} alt={ph.name} />
-                  <div className="swatch-row">
-                    {ph.dominantColors.map((hex) => (
-                      <span
-                        key={hex}
-                        className="swatch"
-                        style={{ backgroundColor: hex }}
-                        title={hex}
-                      />
-                    ))}
+              {entry.photos.map((ph, idx) => {
+                const isPinned = pinnedPhotoIndex === idx;
+                return (
+                  <div
+                    key={ph.id}
+                    className={`photo-thumb-card ${isPinned ? 'is-pinned' : ''}`}
+                    onClick={() =>
+                      setPinnedPhotoIndex((prev) => (prev === idx ? null : idx))
+                    }
+                    title="Нажмите, чтобы закрепить этот кадр на странице 4:5"
+                  >
+                    <div className="photo-thumb-img-wrap">
+                      <img src={ph.dataUrl} alt={ph.name} />
+                      <button
+                        type="button"
+                        className="photo-zoom-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxPhoto(ph);
+                        }}
+                        title="Открыть фото крупно с разбором палитры"
+                      >
+                        <ZoomIn size={13} />
+                      </button>
+                    </div>
+                    <div className="swatch-row">
+                      {ph.dominantColors.map((hex) => (
+                        <span
+                          key={hex}
+                          className="swatch"
+                          style={{ backgroundColor: hex }}
+                          title={hex}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -444,12 +543,57 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         </div>
       </div>
 
+      {/* Лайтбокс отдельной фотографии с разбором спектра */}
+      {lightboxPhoto && (
+        <div
+          className="lightbox-overlay"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <div
+            className="lightbox-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="lightbox-head font-mono">
+              <span>ФАЙЛ В ПАПКЕ // {lightboxPhoto.name}</span>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setLightboxPhoto(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <img
+              src={lightboxPhoto.dataUrl}
+              alt={lightboxPhoto.name}
+              className="lightbox-img"
+            />
+
+            <div className="lightbox-footer font-mono">
+              <div className="lightbox-swatches">
+                {lightboxPhoto.dominantColors.map((hex) => (
+                  <span key={hex} className="lightbox-chip">
+                    <i style={{ backgroundColor: hex }} />
+                    {hex}
+                  </span>
+                ))}
+              </div>
+              <div className="lightbox-metrics">
+                Яркость {Math.round(lightboxPhoto.brightness * 100)}% · Контраст{' '}
+                {Math.round(lightboxPhoto.contrast * 100)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Полноэкранный режим погружения (Cinema Mode) */}
       {isImmersive && (
         <div
           className="immersive-overlay"
           style={{
-            background: `radial-gradient(circle at 50% 35%, ${entry.analysis.palette.accent}33, #0e0e0d 78%)`,
+            background: `radial-gradient(circle at 50% 35%, ${entry.analysis.palette.accent}44, #08090f 80%)`,
           }}
         >
           <div className="immersive-topbar">
