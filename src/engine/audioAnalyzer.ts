@@ -1,4 +1,5 @@
 import type { MusicInput } from '../types/diary';
+import { searchTrackPreviews } from './musicSearch';
 
 export interface AudioFileMetrics {
   bpm: number;
@@ -165,21 +166,50 @@ export class DayAudioController {
         : music.previewUrl;
 
     if (audioSrc) {
-      const audio = new Audio(audioSrc);
-      audio.loop = true;
-      audio.crossOrigin = 'anonymous';
-      this.audioEl = audio;
-      this.mediaSource = this.ctx.createMediaElementSource(audio);
-      this.mediaSource.connect(this.masterGain);
-      audio.play().catch(() => {
-        if (this.isPlaying && this.synthTimer === null) {
-          this.startProceduralSoundscape(music);
-        }
-      });
+      this.playDirectAudioUrl(audioSrc, music);
+      return;
+    }
+
+    // Если previewUrl ещё не подгружен — ищем настоящий 30-сек трек по исполнителю и названию
+    const query = `${music.artist ?? ''} ${music.title ?? ''}`.trim();
+    if (query && query !== 'Без названия') {
+      this.startProceduralSoundscape(music);
+      searchTrackPreviews(query)
+        .then((results) => {
+          if (!this.isPlaying || !this.ctx) return;
+          const foundUrl = results[0]?.previewUrl;
+          if (foundUrl) {
+            music.previewUrl = foundUrl;
+            if (this.synthTimer !== null) {
+              clearInterval(this.synthTimer);
+              this.synthTimer = null;
+            }
+            this.playDirectAudioUrl(foundUrl, music);
+          }
+        })
+        .catch(() => {});
       return;
     }
 
     this.startProceduralSoundscape(music);
+  }
+
+  private playDirectAudioUrl(url: string, fallbackMusic: MusicInput): void {
+    if (!this.ctx || !this.masterGain) return;
+    this.baseVolume = 0.85;
+    this.masterGain.gain.value = this.baseVolume;
+
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.crossOrigin = 'anonymous';
+    this.audioEl = audio;
+    this.mediaSource = this.ctx.createMediaElementSource(audio);
+    this.mediaSource.connect(this.masterGain);
+    audio.play().catch(() => {
+      if (this.isPlaying && this.synthTimer === null) {
+        this.startProceduralSoundscape(fallbackMusic);
+      }
+    });
   }
 
   public setDucking(ducked: boolean): void {
@@ -248,72 +278,195 @@ export class DayAudioController {
     if (!this.ctx || !this.masterGain) return;
     const ctx = this.ctx;
     const master = this.masterGain;
+    const tag = `${music.genre} ${music.artist} ${music.title}`.toLowerCase();
 
-    const minorChords = [
-      [220.0, 261.63, 329.63],
-      [174.61, 220.0, 261.63],
-      [146.83, 220.0, 261.63],
-      [164.81, 246.94, 329.63],
-    ];
-    const majorChords = [
-      [261.63, 329.63, 392.0],
-      [196.0, 246.94, 293.66],
-      [220.0, 261.63, 329.63],
-      [174.61, 220.0, 261.63],
-    ];
+    // 5 совершенно разных по вайбу и гармонии звуковых профилей
+    type VibeProfile = {
+      chords: number[][];
+      wave: OscillatorType;
+      subWave: OscillatorType;
+      cutoff: number;
+      pattern: 'postpunk' | 'ambient' | 'synthpop' | 'soul' | 'bossa';
+    };
 
-    const progression = music.tonality === 'minor' ? minorChords : majorChords;
-    const stepMs = Math.max(
-      240,
-      Math.round(
-        (60000 / Math.max(55, music.bpm)) * (music.energy > 0.65 ? 1 : 2)
-      )
-    );
+    let profile: VibeProfile;
+
+    if (/(post-punk|electronic|idm|moderat|molchat|rock|storm)/.test(tag)) {
+      // 1. Пост-панк / Драйвовый урбан-бит после бури (пульсирующий бас F#m - D - Bm - C#m)
+      profile = {
+        chords: [
+          [185.0, 220.0, 277.18],
+          [146.83, 185.0, 220.0],
+          [123.47, 146.83, 185.0],
+          [138.59, 164.81, 207.65],
+        ],
+        wave: 'sawtooth',
+        subWave: 'square',
+        cutoff: 1450,
+        pattern: 'postpunk',
+      };
+    } else if (/(ambient|cinematic|eno|zimmer|space|sky|field)/.test(tag)) {
+      // 2. Бескрайнее небо и поле (парящий кинематографичный орган-пад Dmaj9 - Asus4 - Gmaj7)
+      profile = {
+        chords: [
+          [146.83, 220.0, 277.18, 329.63],
+          [110.0, 164.81, 220.0, 246.94],
+          [98.0, 146.83, 185.0, 246.94],
+          [110.0, 164.81, 220.0, 293.66],
+        ],
+        wave: 'sine',
+        subWave: 'sine',
+        cutoff: 680,
+        pattern: 'ambient',
+      };
+    } else if (/(synth|indie|m83|city|pop|roof)/.test(tag)) {
+      // 3. Панорама города с крыши (светлый арпеджио-синтвейв Ebmaj7 - Cm7 - Abmaj7 - Bb)
+      profile = {
+        chords: [
+          [155.56, 196.0, 233.08, 293.66],
+          [130.81, 155.56, 196.0, 233.08],
+          [207.65, 261.63, 311.13, 392.0],
+          [233.08, 293.66, 349.23, 466.16],
+        ],
+        wave: 'triangle',
+        subWave: 'sawtooth',
+        cutoff: 2200,
+        pattern: 'synthpop',
+      };
+    } else if (/(soul|grover|sunset|golden|lofi|r&b)/.test(tag)) {
+      // 4. Золотой закатный час (тёплое электропианино Rhodes Fmaj7 - E7 - Am7 - Gm7)
+      profile = {
+        chords: [
+          [174.61, 220.0, 261.63, 329.63],
+          [164.81, 207.65, 246.94, 311.13],
+          [220.0, 261.63, 329.63, 392.0],
+          [196.0, 233.08, 293.66, 349.23],
+        ],
+        wave: 'sine',
+        subWave: 'triangle',
+        cutoff: 1150,
+        pattern: 'soul',
+      };
+    } else {
+      // 5. Солнечные коты на брусчатке (уютная щипковая босса-нова G6 - Am7 - Bm7 - E7b9)
+      profile = {
+        chords: [
+          [196.0, 246.94, 293.66, 329.63],
+          [220.0, 261.63, 329.63, 392.0],
+          [246.94, 293.66, 369.99, 440.0],
+          [164.81, 207.65, 293.66, 349.23],
+        ],
+        wave: 'triangle',
+        subWave: 'sine',
+        cutoff: 1600,
+        pattern: 'bossa',
+      };
+    }
+
+    const beatMs = Math.round(60000 / Math.max(58, music.bpm));
+    const stepMs =
+      profile.pattern === 'postpunk' || profile.pattern === 'synthpop'
+        ? Math.max(180, Math.round(beatMs / 2))
+        : profile.pattern === 'ambient'
+          ? Math.round(beatMs * 1.5)
+          : beatMs;
+
     let stepIndex = 0;
 
     const triggerNote = () => {
       if (!this.isPlaying || !this.ctx || !this.masterGain) return;
       const now = ctx.currentTime;
-      const chord = progression[Math.floor(stepIndex / 2) % progression.length];
+      const chord =
+        profile.chords[Math.floor(stepIndex / 4) % profile.chords.length];
       const noteFreq = chord[stepIndex % chord.length];
+      const dur = stepMs / 1000;
 
       const osc = ctx.createOscillator();
       const filter = ctx.createBiquadFilter();
       const env = ctx.createGain();
 
-      osc.type = music.energy > 0.65 ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(
-        stepIndex % 4 === 0 ? noteFreq / 2 : noteFreq,
-        now
-      );
+      osc.type = profile.wave;
+      const octaveMult =
+        profile.pattern === 'postpunk'
+          ? stepIndex % 2 === 0
+            ? 0.5
+            : 1
+          : profile.pattern === 'synthpop'
+            ? stepIndex % 4 === 3
+              ? 2
+              : 1
+            : 1;
+      osc.frequency.setValueAtTime(noteFreq * octaveMult, now);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(music.energy > 0.65 ? 2100 : 920, now);
+      filter.frequency.setValueAtTime(profile.cutoff, now);
 
-      const dur = stepMs / 1000;
+      const attack = profile.pattern === 'ambient' ? 0.35 : 0.025;
+      const release =
+        profile.pattern === 'bossa'
+          ? dur * 0.75
+          : profile.pattern === 'ambient'
+            ? dur * 2.2
+            : dur * 1.25;
+
       env.gain.setValueAtTime(0.001, now);
-      env.gain.exponentialRampToValueAtTime(0.24, now + 0.06);
-      env.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.4);
+      env.gain.exponentialRampToValueAtTime(0.22, now + attack);
+      env.gain.exponentialRampToValueAtTime(0.001, now + release);
 
       osc.connect(filter);
       filter.connect(env);
       env.connect(master);
 
       osc.start(now);
-      osc.stop(now + dur * 1.5);
+      osc.stop(now + release + 0.05);
 
-      if (music.energy > 0.6 && stepIndex % 2 === 0) {
+      // Для Soul и Ambient одновременно берём мягкий аккордовый подклад
+      if (
+        (profile.pattern === 'soul' || profile.pattern === 'ambient') &&
+        stepIndex % 2 === 0
+      ) {
+        chord.slice(0, 3).forEach((cf) => {
+          const padOsc = ctx.createOscillator();
+          const padGain = ctx.createGain();
+          padOsc.type = profile.subWave;
+          padOsc.frequency.setValueAtTime(cf, now);
+          padGain.gain.setValueAtTime(0.001, now);
+          padGain.gain.exponentialRampToValueAtTime(0.06, now + 0.18);
+          padGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.9);
+          padOsc.connect(filter);
+          padOsc.start(now);
+          padOsc.stop(now + dur * 2);
+        });
+      }
+
+      // Жанровая перкуссия и бас
+      if (profile.pattern === 'postpunk' && stepIndex % 2 === 0) {
         const kick = ctx.createOscillator();
         const kEnv = ctx.createGain();
         kick.type = 'sine';
-        kick.frequency.setValueAtTime(118, now);
-        kick.frequency.exponentialRampToValueAtTime(42, now + 0.14);
-        kEnv.gain.setValueAtTime(0.24, now);
-        kEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        kick.frequency.setValueAtTime(125, now);
+        kick.frequency.exponentialRampToValueAtTime(40, now + 0.13);
+        kEnv.gain.setValueAtTime(0.28, now);
+        kEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         kick.connect(kEnv);
         kEnv.connect(master);
         kick.start(now);
-        kick.stop(now + 0.18);
+        kick.stop(now + 0.16);
+      } else if (
+        profile.pattern === 'bossa' &&
+        (stepIndex % 4 === 0 || stepIndex % 4 === 3)
+      ) {
+        // Мягкий акустический римшот/шейкер босса-новы
+        const rim = ctx.createOscillator();
+        const rEnv = ctx.createGain();
+        rim.type = 'triangle';
+        rim.frequency.setValueAtTime(stepIndex % 4 === 0 ? 92 : 640, now);
+        rEnv.gain.setValueAtTime(0.11, now);
+        rEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        rim.connect(rEnv);
+        rEnv.connect(master);
+        rim.start(now);
+        rim.stop(now + 0.09);
       }
 
       stepIndex++;

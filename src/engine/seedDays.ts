@@ -1,5 +1,6 @@
 import type { DiaryEntry, MusicInput, PhotoItem } from '../types/diary';
 import { analyzeDayAtmosphere } from './atmosphereEngine';
+import { searchTrackPreviews } from './musicSearch';
 import { analyzeDataUrl } from './photoAnalyzer';
 
 async function loadPublicPhotoAsDataUrl(url: string): Promise<string> {
@@ -50,13 +51,13 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       photoUrl: './photos/day1.jpg',
       music: {
         mode: 'link',
-        title: 'A New Error',
-        artist: 'Moderat',
-        genre: 'Electronic / IDM',
-        bpm: 128,
+        title: 'Судно (Борис Рыжий)',
+        artist: 'Молчат Дома',
+        genre: 'Post-Punk / Coldwave',
+        bpm: 130,
         tonality: 'minor',
-        energy: 0.84,
-        url: 'https://open.spotify.com/search/Moderat%20A%20New%20Error',
+        energy: 0.86,
+        url: 'https://open.spotify.com/search/Molchat%20Doma%20Sudno',
       },
     },
     {
@@ -70,13 +71,13 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       photoUrl: './photos/day2.jpg',
       music: {
         mode: 'link',
-        title: 'An Ending (Ascent)',
-        artist: 'Brian Eno',
-        genre: 'Ambient',
+        title: 'Cornfield Chase',
+        artist: 'Hans Zimmer',
+        genre: 'Cinematic Ambient',
         bpm: 66,
         tonality: 'minor',
-        energy: 0.24,
-        url: 'https://open.spotify.com/search/Brian%20Eno%20An%20Ending',
+        energy: 0.28,
+        url: 'https://open.spotify.com/search/Hans%20Zimmer%20Cornfield%20Chase',
       },
     },
     {
@@ -90,12 +91,12 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       photoUrl: './photos/day3.jpg',
       music: {
         mode: 'link',
-        title: 'Midnight City (Instrumental)',
+        title: 'Midnight City',
         artist: 'M83',
         genre: 'Indie / Synthpop',
         bpm: 105,
         tonality: 'major',
-        energy: 0.58,
+        energy: 0.64,
         url: 'https://open.spotify.com/search/M83%20Midnight%20City',
       },
     },
@@ -111,11 +112,11 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       music: {
         mode: 'link',
         title: 'Just the Two of Us',
-        artist: 'Grover Washington Jr.',
-        genre: 'Soul Jazz',
+        artist: 'Grover Washington, Jr.',
+        genre: 'Sunset Soul Jazz',
         bpm: 78,
         tonality: 'major',
-        energy: 0.38,
+        energy: 0.42,
         url: 'https://open.spotify.com/search/Just%20the%20Two%20of%20Us',
       },
     },
@@ -130,13 +131,13 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       photoUrl: './photos/day5.jpg',
       music: {
         mode: 'link',
-        title: 'Sunrise',
-        artist: 'Norah Jones',
-        genre: 'Acoustic Jazz',
-        bpm: 80,
+        title: 'The Girl from Ipanema',
+        artist: 'Stan Getz & João Gilberto',
+        genre: 'Sunny Bossa Nova',
+        bpm: 88,
         tonality: 'major',
         energy: 0.36,
-        url: 'https://open.spotify.com/search/Norah%20Jones%20Sunrise',
+        url: 'https://open.spotify.com/search/The%20Girl%20from%20Ipanema',
       },
     },
   ];
@@ -151,6 +152,14 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
     const photos = [analyzedPhoto];
 
     const analysis = await analyzeDayAtmosphere(spec.text, photos, spec.music);
+    const previews = await searchTrackPreviews(
+      `${spec.music.artist} ${spec.music.title}`
+    );
+    const enrichedMusic: MusicInput = {
+      ...spec.music,
+      previewUrl: previews[0]?.previewUrl,
+      artworkUrl: previews[0]?.artworkUrl,
+    };
     entries.push({
       id: spec.id,
       indexNumber: spec.indexNumber,
@@ -161,7 +170,7 @@ export async function createUserPhotoDays(): Promise<DiaryEntry[]> {
       text: spec.text,
       signature: spec.signature,
       photos,
-      music: spec.music,
+      music: enrichedMusic,
       analysis,
     });
   }

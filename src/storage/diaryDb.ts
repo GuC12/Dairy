@@ -1,8 +1,8 @@
 import type { DiaryEntry } from '../types/diary';
 import { createUserPhotoDays } from '../engine/seedDays';
 
-const DB_NAME = 'atmos_diary_db_v3';
-const LEGACY_DBS = ['atmos_diary_db_v2', 'atmos_diary_db'];
+const DB_NAME = 'atmos_diary_db_v4';
+const LEGACY_DBS = ['atmos_diary_db_v3', 'atmos_diary_db_v2', 'atmos_diary_db'];
 const DB_VERSION = 1;
 const STORE_NAME = 'days';
 
@@ -59,7 +59,11 @@ export async function loadAllDays(): Promise<DiaryEntry[]> {
     for (const legacyName of LEGACY_DBS) {
       const legacyItems = await readEntriesFromDb(legacyName);
       for (const item of legacyItems) {
-        if (!item.id.startsWith('seed_day_') && !userMap.has(item.id)) {
+        if (
+          !item.id.startsWith('seed_day_') &&
+          !item.id.startsWith('user_photo_day_') &&
+          !userMap.has(item.id)
+        ) {
           userMap.set(item.id, item);
           await saveDay(item);
         }
