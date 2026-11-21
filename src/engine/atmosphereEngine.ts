@@ -10,6 +10,7 @@ import type {
   VoiceProfile,
 } from '../types/diary';
 import { getColorWarmth, hexToRgb, rgbToHex } from './photoAnalyzer';
+import { searchTrackPreviews } from './musicSearch';
 
 const MOVEMENT_META: Record<
   ArtMovementId,
@@ -455,12 +456,39 @@ export async function analyzeDayAtmosphere(
   }
 }
 
+function buildLiveMusicQuery(text: string, avgWarmth: number): string {
+  const lower = text.toLowerCase();
+  if (/(закат|золотой|рассвет|вечер|sunset|golden)/.test(lower)) {
+    return 'sunset dream pop indie';
+  }
+  if (/(кот|кош|собак|питом|уют|кофе|какао|дом|брусчат)/.test(lower)) {
+    return 'cozy lofi jazz chill';
+  }
+  if (/(небо|поле|облак|воздух|трав|природ|лес|гор|море|океан)/.test(lower)) {
+    return 'ambient nature acoustic sky';
+  }
+  if (/(город|панорам|крыш|высот|улиц|ветер|ночь|огни|фонар)/.test(lower)) {
+    return 'night city indie synthwave';
+  }
+  if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум|спорт|драйв)/.test(lower)) {
+    return 'electronic focus energy';
+  }
+  if (/(туман|дожд|груст|тоск|один|луж|rain|fog)/.test(lower)) {
+    return 'rainy day ambient piano';
+  }
+  if (/(парк|осень|тепл|тёпл|свеч|винил|любл|солнц|лето)/.test(lower)) {
+    return 'warm indie acoustic sunshine';
+  }
+  return avgWarmth > 0.05
+    ? 'warm indie pop chill'
+    : 'atmospheric indie midnight';
+}
+
 export async function suggestMusicForDay(
   text: string,
   photos: PhotoItem[],
   geminiApiKey?: string
 ): Promise<MusicInput> {
-  const lower = text.toLowerCase();
   const avgWarmth =
     photos.length > 0
       ? photos.reduce(
@@ -469,74 +497,10 @@ export async function suggestMusicForDay(
         ) / photos.length
       : 0;
 
-  const pickFromPool = (pool: Array<Omit<MusicInput, 'mode' | 'url'>>): MusicInput => {
-    let hash = 0;
-    const seed = `${lower}:${photos[0]?.dominantColors[0] ?? ''}`;
-    for (let i = 0; i < seed.length; i += 1) {
-      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-    }
-    const chosen = pool[hash % pool.length];
-    return {
-      mode: 'link',
-      ...chosen,
-      url: `https://open.spotify.com/search/${encodeURIComponent(`${chosen.artist} ${chosen.title}`)}`,
-    };
-  };
-
-  let fallback: MusicInput;
-  if (/(закат|золотой|перекрёст|перекрест|солнц|тени|двор)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Cigarettes After Sex', title: 'Sunsetz', genre: 'Dream Pop', bpm: 94, tonality: 'major', energy: 0.38 },
-      { artist: 'Nujabes', title: 'Feather', genre: 'Jazz Hop / Lo-Fi', bpm: 88, tonality: 'major', energy: 0.52 },
-      { artist: 'Mac DeMarco', title: 'Salad Days', genre: 'Indie / Jangle Pop', bpm: 108, tonality: 'major', energy: 0.54 },
-    ]);
-  } else if (/(кот|кош|собак|питом|уют|брусчат)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Nujabes', title: 'Feather', genre: 'Jazz Hop / Lo-Fi', bpm: 88, tonality: 'major', energy: 0.52 },
-      { artist: 'Belle and Sebastian', title: 'Another Sunny Day', genre: 'Indie Pop', bpm: 122, tonality: 'major', energy: 0.68 },
-      { artist: 'Lamp', title: 'Yume Utsutsu', genre: 'Shibuya-kei / Jazz Pop', bpm: 92, tonality: 'major', energy: 0.45 },
-    ]);
-  } else if (/(небо|поле|облак|воздух|трав|природ|лес|горы)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Tycho', title: 'Awake', genre: 'Ambient / Chillwave', bpm: 120, tonality: 'major', energy: 0.58 },
-      { artist: 'Bon Iver', title: 'Holocene', genre: 'Indie Folk', bpm: 92, tonality: 'major', energy: 0.42 },
-      { artist: 'Ludovico Einaudi', title: 'Nuvole Bianche', genre: 'Modern Classical', bpm: 78, tonality: 'major', energy: 0.34 },
-    ]);
-  } else if (/(город|панорам|крыш|высот|улиц|ветер|вечер|ночь)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Кино', title: 'Спокойная ночь', genre: 'Post-Punk / Indie Rock', bpm: 96, tonality: 'minor', energy: 0.48 },
-      { artist: 'Coldplay', title: 'Strawberry Swing', genre: 'Indie Pop', bpm: 112, tonality: 'major', energy: 0.62 },
-      { artist: 'Kavinsky', title: 'Nightcall', genre: 'Synthwave', bpm: 91, tonality: 'minor', energy: 0.56 },
-    ]);
-  } else if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Rival Consoles', title: 'Recovery', genre: 'Electronic / IDM', bpm: 128, tonality: 'minor', energy: 0.82 },
-      { artist: 'Jon Hopkins', title: 'Open Eye Signal', genre: 'Electronic / Techno', bpm: 125, tonality: 'minor', energy: 0.84 },
-    ]);
-  } else if (/(туман|море|поезд|тишин|дожд|груст|утро|один)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Nils Frahm', title: 'Says', genre: 'Modern Classical / Ambient', bpm: 72, tonality: 'minor', energy: 0.3 },
-      { artist: 'Ólafur Arnalds', title: 'Near Light', genre: 'Ambient / Neoclassical', bpm: 76, tonality: 'minor', energy: 0.32 },
-    ]);
-  } else if (avgWarmth > 0.05 || /(парк|какао|осень|тепл|тёпл|свеч|винил|любл)/.test(lower)) {
-    fallback = pickFromPool([
-      { artist: 'Frank Sinatra', title: 'Autumn in New York', genre: 'Vocal Jazz', bpm: 76, tonality: 'major', energy: 0.35 },
-      { artist: 'Chet Baker', title: 'Almost Blue', genre: 'Cool Jazz', bpm: 68, tonality: 'minor', energy: 0.28 },
-    ]);
-  } else {
-    fallback = pickFromPool([
-      { artist: 'Khruangbin', title: 'White Gloves', genre: 'Indie / Psychedelic Soul', bpm: 98, tonality: 'major', energy: 0.52 },
-      { artist: 'Tame Impala', title: 'Borderline', genre: 'Psychedelic Pop', bpm: 98, tonality: 'major', energy: 0.66 },
-      { artist: 'Men I Trust', title: 'Show Me How', genre: 'Dream Pop', bpm: 88, tonality: 'major', energy: 0.44 },
-    ]);
-  }
-
-  if (!geminiApiKey || !geminiApiKey.trim()) {
-    return fallback;
-  }
-
-  try {
-    const prompt = `Подбери одну реально существующую песню, которая идеально передаёт атмосферу этого дня.
+  // 1. Если задан Gemini API ключ, сначала пробуем подобрать через Gemini
+  if (geminiApiKey && geminiApiKey.trim()) {
+    try {
+      const prompt = `Подбери одну реально существующую песню, которая идеально передаёт атмосферу этого дня.
 Текст дня: "${text}"
 Цвета фото: ${photos[0]?.dominantColors.join(', ') ?? 'не заданы'}
 
@@ -550,43 +514,78 @@ export async function suggestMusicForDay(
   "energy": число от 0.1 до 1.0
 }`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey.trim())}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.6,
-          },
-        }),
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey.trim())}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.6,
+            },
+          }),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<MusicInput>;
+          if (parsed.title) {
+            const query = encodeURIComponent(
+              `${parsed.artist ?? ''} ${parsed.title}`.trim()
+            );
+            return {
+              mode: 'link',
+              artist: parsed.artist ?? '',
+              title: parsed.title,
+              genre: parsed.genre ?? 'Indie',
+              bpm: Math.max(55, Math.min(165, Number(parsed.bpm) || 92)),
+              tonality: parsed.tonality === 'minor' ? 'minor' : 'major',
+              energy: Math.max(0.1, Math.min(1, Number(parsed.energy) || 0.5)),
+              url: `https://open.spotify.com/search/${query}`,
+            };
+          }
+        }
       }
-    );
-    if (!res.ok) return fallback;
-    const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<MusicInput>;
-    if (!parsed.title) return fallback;
+    } catch {
+      // Переходим к живому поиску по интернету
+    }
+  }
 
-    const query = encodeURIComponent(
-      `${parsed.artist ?? ''} ${parsed.title}`.trim()
-    );
+  // 2. Живой автоматический поиск в интернете (iTunes Search API) по настроению и тексту дня
+  const liveQuery = buildLiveMusicQuery(text, avgWarmth);
+  const liveTracks = await searchTrackPreviews(liveQuery, 15);
+  if (liveTracks.length > 0) {
+    const picked = liveTracks[Math.floor(Math.random() * liveTracks.length)];
+    const spQuery = encodeURIComponent(`${picked.artist} ${picked.title}`.trim());
     return {
       mode: 'link',
-      artist: parsed.artist ?? '',
-      title: parsed.title,
-      genre: parsed.genre ?? 'Indie',
-      bpm: Math.max(55, Math.min(165, Number(parsed.bpm) || 92)),
-      tonality: parsed.tonality === 'minor' ? 'minor' : 'major',
-      energy: Math.max(0.1, Math.min(1, Number(parsed.energy) || 0.5)),
-      url: `https://open.spotify.com/search/${query}`,
+      artist: picked.artist,
+      title: picked.title,
+      genre: picked.genre,
+      bpm: picked.estimatedBpm,
+      tonality: picked.estimatedTonality,
+      energy: picked.estimatedEnergy,
+      url: `https://open.spotify.com/search/${spQuery}`,
+      previewUrl: picked.previewUrl,
+      artworkUrl: picked.artworkUrl,
     };
-  } catch {
-    return fallback;
   }
+
+  // 3. Резервный вариант только при отсутствии интернета
+  return {
+    mode: 'link',
+    artist: 'Khruangbin',
+    title: 'White Gloves',
+    genre: 'Indie / Psychedelic Soul',
+    bpm: 98,
+    tonality: 'major',
+    energy: 0.52,
+    url: 'https://open.spotify.com/search/Khruangbin%20White%20Gloves',
+  };
 }
 
 export function inferMusicMetricsFromContext(

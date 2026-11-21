@@ -35,7 +35,8 @@ function inferMusicParams(genre: string): {
 }
 
 export async function searchTrackPreviews(
-  query: string
+  query: string,
+  limit = 6
 ): Promise<TrackSearchResult[]> {
   const clean = query.trim();
   if (!clean) return [];
@@ -43,7 +44,7 @@ export async function searchTrackPreviews(
   try {
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(
       clean
-    )}&media=music&entity=song&limit=6`;
+    )}&media=music&entity=song&limit=${limit}`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = (await res.json()) as {
