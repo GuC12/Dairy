@@ -114,6 +114,7 @@ export class DayAudioController {
   private analyser: AnalyserNode | null = null;
   private audioEl: HTMLAudioElement | null = null;
   private mediaSource: MediaElementAudioSourceNode | null = null;
+  private noiseNode: AudioBufferSourceNode | null = null;
   private synthTimer: number | null = null;
   private masterGain: GainNode | null = null;
   private streamDest: MediaStreamAudioDestinationNode | null = null;
@@ -150,6 +151,7 @@ export class DayAudioController {
     this.analyser.connect(this.streamDest);
 
     this.isPlaying = true;
+    this.startVinylAmbientLayer();
 
     const audioSrc =
       music.mode === 'file' && music.audioDataUrl
@@ -182,6 +184,44 @@ export class DayAudioController {
 
   public getAudioStream(): MediaStream | null {
     return this.streamDest?.stream ?? null;
+  }
+
+  private startVinylAmbientLayer(): void {
+    if (!this.ctx || !this.masterGain) return;
+    try {
+      const sr = this.ctx.sampleRate;
+      const len = sr * 3;
+      const buf = this.ctx.createBuffer(1, len, sr);
+      const data = buf.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < len; i++) {
+        const white = Math.random() * 2 - 1;
+        // Мягкий коричневый шум + редкие виниловые микро-щелчки
+        lastOut = (lastOut + 0.03 * white) / 1.03;
+        const crackle = Math.random() > 0.9985 ? (Math.random() * 2 - 1) * 0.45 : 0;
+        data[i] = lastOut * 0.18 + crackle;
+      }
+
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1100;
+      filter.Q.value = 0.7;
+
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.055;
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+      src.start();
+      this.noiseNode = src;
+    } catch {
+      // ignore
+    }
   }
 
   private startProceduralSoundscape(music: MusicInput): void {
@@ -308,6 +348,15 @@ export class DayAudioController {
     if (this.synthTimer !== null) {
       clearInterval(this.synthTimer);
       this.synthTimer = null;
+    }
+    if (this.noiseNode) {
+      try {
+        this.noiseNode.stop();
+        this.noiseNode.disconnect();
+      } catch {
+        // ignore
+      }
+      this.noiseNode = null;
     }
     if (this.audioEl) {
       this.audioEl.pause();

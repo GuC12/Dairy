@@ -3,6 +3,7 @@ import {
   BookOpen,
   Disc3,
   Download,
+  Film,
   Folder,
   LayoutGrid,
   Pause,
@@ -21,6 +22,7 @@ interface ArchiveFeedProps {
   entries: DiaryEntry[];
   onSelect: (entry: DiaryEntry) => void;
   onOpenRandomCapsule: () => void;
+  onStartReel: () => void;
   onCreateNew: () => void;
   onImport: (entry: DiaryEntry) => void;
   onHoverEntry?: (entry: DiaryEntry | null) => void;
@@ -49,6 +51,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   entries,
   onSelect,
   onOpenRandomCapsule,
+  onStartReel,
   onCreateNew,
   onImport,
   onHoverEntry,
@@ -156,12 +159,25 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             звуковой пульс.
           </p>
 
-          {/* Хроматическая ДНК всего дневника */}
+          {/* Хроматическая ДНК всего дневника + аналитическая сводка */}
           {entries.length > 0 && (
             <div className="chromatic-dna-box">
-              <div className="dna-head font-mono">
-                <Sparkles size={13} />
-                <span>ХРОМАТИЧЕСКИЙ СПЕКТР ДНЕВНИКА ({entries.length} ДНЕЙ)</span>
+              <div className="dna-head-between font-mono">
+                <div className="dna-head">
+                  <Sparkles size={13} />
+                  <span>
+                    ХРОМАТИЧЕСКИЙ СПЕКТР ДНЕВНИКА ({entries.length} ДНЕЙ)
+                  </span>
+                </div>
+                <span className="dna-stats">
+                  {entries.reduce((s, e) => s + e.photos.length, 0)} фото · Ср.
+                  ритм{' '}
+                  {Math.round(
+                    entries.reduce((s, e) => s + e.music.bpm, 0) /
+                      entries.length
+                  )}{' '}
+                  BPM
+                </span>
               </div>
               <div className="dna-ribbon">
                 {entries.map((entry) => {
@@ -221,13 +237,28 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
               onClick={() => {
                 audioRef.current?.stop();
                 setPlayingId(null);
+                onStartReel();
+              }}
+              disabled={entries.length === 0}
+              title="Автоматически проиграть все дни дневника как фильм"
+            >
+              <Film size={15} />
+              Фильм
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                audioRef.current?.stop();
+                setPlayingId(null);
                 onOpenRandomCapsule();
               }}
               disabled={entries.length === 0}
               title="Открыть случайное воспоминание в полноэкранном режиме погружения"
             >
               <Sparkles size={15} />
-              Капсула времени
+              Капсула
             </button>
 
             <button

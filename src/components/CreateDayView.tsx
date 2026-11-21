@@ -1,9 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Check,
   ImagePlus,
   Link2,
   Loader2,
+  MapPin,
+  Mic,
+  MicOff,
   Music,
   Search,
   Sparkles,
@@ -141,7 +144,134 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggestingMusic, setIsSuggestingMusic] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
+  const [isDetectingGeo, setIsDetectingGeo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+
+  const toggleDictation = () => {
+    if (isDictating) {
+      recognitionRef.current?.stop();
+      setIsDictating(false);
+      return;
+    }
+
+    const SpeechRec =
+      (window as unknown as { SpeechRecognition?: new () => unknown })
+        .SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => unknown })
+        .webkitSpeechRecognition;
+
+    if (!SpeechRec) {
+      setError('Ваш браузер не поддерживает голосовую диктовку (используйте Chrome/Edge).');
+      return;
+    }
+
+    try {
+      const rec = new SpeechRec() as {
+        lang: string;
+        continuous: boolean;
+        interimResults: boolean;
+        onresult: (event: {
+          results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
+        }) => void;
+        onerror: () => void;
+        onend: () => void;
+        start: () => void;
+        stop: () => void;
+      };
+      rec.lang = 'ru-RU';
+      rec.continuous = true;
+      rec.interimResults = false;
+
+      rec.onresult = (event) => {
+        const lastIdx = event.results.length - 1;
+        const phrase = event.results[lastIdx]?.[0]?.transcript?.trim();
+        if (phrase) {
+          setText((prev) => (prev ? `${prev.trim()} ${phrase}` : phrase));
+        }
+      };
+      rec.onerror = () => setIsDictating(false);
+      rec.onend = () => setIsDictating(false);
+
+      recognitionRef.current = rec;
+      setIsDictating(true);
+      rec.start();
+    } catch {
+      setIsDictating(false);
+    }
+  };
+
+  const handleAutoWeatherGeo = () => {
+    if (!('geolocation' in navigator)) {
+      setWeather('+4°C, переменная облачность');
+      setLocation('Астана');
+      return;
+    }
+    setIsDetectingGeo(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const [weatherRes, geoRes] = await Promise.all([
+            fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude.toFixed(
+                3
+              )}&longitude=${longitude.toFixed(3)}&current_weather=true`
+            ),
+            fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude.toFixed(
+                3
+              )}&lon=${longitude.toFixed(3)}&accept-language=ru`
+            ),
+          ]);
+
+          if (weatherRes.ok) {
+            const wData = (await weatherRes.json()) as {
+              current_weather?: { temperature?: number; weathercode?: number };
+            };
+            const temp = Math.round(wData.current_weather?.temperature ?? 5);
+            const code = wData.current_weather?.weathercode ?? 0;
+            const sign = temp > 0 ? `+${temp}°C` : `${temp}°C`;
+            let sky = 'ясно';
+            if (code >= 95) sky = 'гроза';
+            else if (code >= 71) sky = 'снег';
+            else if (code >= 51) sky = 'дождь';
+            else if (code >= 45) sky = 'туман';
+            else if (code >= 1) sky = 'облачно';
+            setWeather(`${sign}, ${sky}`);
+          }
+
+          if (geoRes.ok) {
+            const gData = (await geoRes.json()) as {
+              address?: {
+                city?: string;
+                town?: string;
+                village?: string;
+                suburb?: string;
+              };
+            };
+            const place =
+              gData.address?.city ||
+              gData.address?.town ||
+              gData.address?.village ||
+              gData.address?.suburb;
+            if (place) setLocation(place);
+          }
+        } catch {
+          setWeather('+3°C, свежий ветер');
+        } finally {
+          setIsDetectingGeo(false);
+        }
+      },
+      () => {
+        setWeather('+4°C, вечерняя прохлада');
+        setLocation('Астана');
+        setIsDetectingGeo(false);
+      },
+      { timeout: 6000 }
+    );
+  };
 
   const displayIndex = editingEntry?.indexNumber ?? nextIndex;
 
@@ -464,7 +594,36 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         <form className="create-form" onSubmit={handleSubmit}>
           {/* 1. Текст дня */}
           <div className="form-card">
-            <label className="form-label font-mono">01 // КАК ПРОШЁЛ ДЕНЬ</label>
+            <div className="form-card-head">
+              <label className="form-label font-mono">
+                01 // КАК ПРОШЁЛ ДЕНЬ
+              </label>
+              <div className="photo-head-actions">
+                <button
+                  type="button"
+                  className={`btn-ghost ${isDictating ? 'dictation-active' : ''}`}
+                  onClick={toggleDictation}
+                  title="Рассказать о дне голосом в микрофон"
+                >
+                  {isDictating ? <MicOff size={14} /> : <Mic size={14} />}
+                  {isDictating ? 'Слушаю речь...' : 'Надиктовать голосом'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={handleAutoWeatherGeo}
+                  disabled={isDetectingGeo}
+                  title="С согласия пользователя определить реальную погоду и город"
+                >
+                  {isDetectingGeo ? (
+                    <Loader2 size={14} className="spin" />
+                  ) : (
+                    <MapPin size={14} />
+                  )}
+                  Авто-погода и город
+                </button>
+              </div>
+            </div>
             <textarea
               className="textarea-main"
               rows={4}

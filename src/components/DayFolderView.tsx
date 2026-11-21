@@ -31,8 +31,10 @@ interface DayFolderViewProps {
   hasPrev?: boolean;
   hasNext?: boolean;
   initialImmersive?: boolean;
+  initialAutoReel?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
+  onNextReel?: () => void;
   onBack: () => void;
   onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: string) => void;
@@ -43,15 +45,23 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   hasPrev = false,
   hasNext = false,
   initialImmersive = false,
+  initialAutoReel = false,
   onPrev,
   onNext,
+  onNextReel,
   onBack,
   onEdit,
   onDelete,
 }) => {
-  const [isPlaying, setIsPlaying] = useState(initialImmersive);
+  const [isPlaying, setIsPlaying] = useState(
+    initialImmersive || initialAutoReel
+  );
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isImmersive, setIsImmersive] = useState(initialImmersive);
+  const [isImmersive, setIsImmersive] = useState(
+    initialImmersive || initialAutoReel
+  );
+  const [isAutoReel, setIsAutoReel] = useState(initialAutoReel);
+  const [reelProgress, setReelProgress] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
   const [bars, setBars] = useState<number[]>(() => Array(16).fill(0.08));
@@ -64,7 +74,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   useEffect(() => {
     const ctrl = new DayAudioController();
     audioCtrlRef.current = ctrl;
-    if (initialImmersive) {
+    if (initialImmersive || initialAutoReel) {
       ctrl.start(entry.music);
     }
     return () => {
@@ -73,7 +83,23 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         window.speechSynthesis.cancel();
       }
     };
-  }, [entry.id, entry.music, initialImmersive]);
+  }, [entry.id, entry.music, initialImmersive, initialAutoReel]);
+
+  // Авто-фильм дневника (перелистывание каждые 9 секунд в режиме погружения)
+  useEffect(() => {
+    if (!isImmersive || !isAutoReel) return;
+    const duration = 9000;
+    const start = Date.now();
+    const id = window.setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - start) / duration) * 100);
+      setReelProgress(pct);
+      if (pct >= 100) {
+        clearInterval(id);
+        onNextReel?.();
+      }
+    }, 80);
+    return () => clearInterval(id);
+  }, [isImmersive, isAutoReel, entry.id, onNextReel]);
 
   // Горячие клавиши: стрелки влево/вправо для листания дневника и Escape
   useEffect(() => {
@@ -539,6 +565,133 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
               <AtmosphereCompass entries={[entry]} activeId={entry.id} compact />
             </div>
+
+            {/* Математика визуальной системы (6 алгоритмических шкал) */}
+            <div className="visual-math-grid font-mono">
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Воздух (Паспарту)</span>
+                  <strong>
+                    {Math.round(entry.analysis.visualParams.whitespace * 100)}%
+                  </strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        entry.analysis.visualParams.whitespace * 100
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.accent,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Жёсткость сетки</span>
+                  <strong>
+                    {Math.round(entry.analysis.visualParams.gridRigidity * 100)}%
+                  </strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        entry.analysis.visualParams.gridRigidity * 100
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.secondary,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Мягкость мазков</span>
+                  <strong>
+                    {Math.round(entry.analysis.visualParams.blurSoftness * 100)}%
+                  </strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        entry.analysis.visualParams.blurSoftness * 100
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.accent,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Плёночное зерно</span>
+                  <strong>
+                    {Math.round(entry.analysis.visualParams.grain * 100)}%
+                  </strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        entry.analysis.visualParams.grain * 100
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.secondary,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Плотность слоя</span>
+                  <strong>
+                    {Math.round(
+                      entry.analysis.visualParams.overlayDensity * 100
+                    )}
+                    %
+                  </strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.round(
+                        entry.analysis.visualParams.overlayDensity * 100
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.accent,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="math-meter">
+                <div className="math-meter-head">
+                  <span>Скорость ритма</span>
+                  <strong>{entry.analysis.visualParams.rhythmSpeed}×</strong>
+                </div>
+                <div className="math-bar-track">
+                  <div
+                    className="math-bar-fill"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (entry.analysis.visualParams.rhythmSpeed / 2) * 100
+                        )
+                      )}%`,
+                      backgroundColor: entry.analysis.palette.secondary,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -596,12 +749,32 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             background: `radial-gradient(circle at 50% 35%, ${entry.analysis.palette.accent}44, #08090f 80%)`,
           }}
         >
+          {isAutoReel && (
+            <div className="reel-progress-bar">
+              <div
+                className="reel-progress-fill"
+                style={{
+                  width: `${reelProgress}%`,
+                  backgroundColor: entry.analysis.palette.accent,
+                }}
+              />
+            </div>
+          )}
+
           <div className="immersive-topbar">
             <span className="font-mono immersive-badge">
               DAY // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
               {entry.analysis.folderName}
             </span>
             <div className="immersive-actions">
+              <button
+                className={`btn-secondary ${isAutoReel ? 'is-active' : ''}`}
+                onClick={() => setIsAutoReel((prev) => !prev)}
+                title="Автоматически листать все дни дневника как фильм"
+              >
+                <Film size={15} />
+                {isAutoReel ? 'Авто-фильм: ВКЛ' : 'Авто-фильм'}
+              </button>
               <button className="btn-secondary" onClick={togglePlay}>
                 {isPlaying ? <Pause size={15} /> : <Play size={15} />}
                 {isPlaying ? 'Пауза' : 'Звук'}
@@ -612,7 +785,10 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
               </button>
               <button
                 className="btn-primary"
-                onClick={() => setIsImmersive(false)}
+                onClick={() => {
+                  setIsAutoReel(false);
+                  setIsImmersive(false);
+                }}
               >
                 <Minimize2 size={15} />
                 Выйти

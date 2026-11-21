@@ -11,6 +11,27 @@ interface MemoryCanvasProps {
   canvasRefOut?: React.RefObject<HTMLCanvasElement | null>;
 }
 
+interface CursorTrailPoint {
+  x: number;
+  y: number;
+  born: number;
+  color: string;
+  size: number;
+}
+
+type WeatherEffectType = 'rain' | 'storm' | 'snow' | 'leaves' | 'mist' | 'none';
+
+function detectWeatherEffect(entry: DiaryEntry): WeatherEffectType {
+  const combined = `${entry.weather ?? ''} ${entry.text}`.toLowerCase();
+  if (/(гроз|молн|шторм)/.test(combined)) return 'storm';
+  if (/(дожд|морос|ливень|капл|лужах|мокрое стекло)/.test(combined)) return 'rain';
+  if (/(снег|снеж|мороз|вьюг|метел|зима)/.test(combined)) return 'snow';
+  if (/(туман|дымк|море|прибреж)/.test(combined)) return 'mist';
+  if (/(осен|жёлтых листьях|желтых листьях|листопад|парк)/.test(combined))
+    return 'leaves';
+  return 'none';
+}
+
 export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   entry,
   isPlaying = false,
@@ -22,6 +43,18 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   const internalRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = canvasRefOut ?? internalRef;
   const imagesRef = useRef<HTMLImageElement[]>([]);
+
+  const pointerRef = useRef<{
+    nx: number;
+    ny: number;
+    active: boolean;
+    trail: CursorTrailPoint[];
+  }>({
+    nx: 0.5,
+    ny: 0.5,
+    active: false,
+    trail: [],
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +93,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     canvas.width = W;
     canvas.height = H;
 
+    const weatherType = detectWeatherEffect(entry);
     let rafId = 0;
     const startTime = performance.now();
 
@@ -67,6 +101,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       const elapsed = (now - startTime) / 1000;
       const { analysis, music } = entry;
       const { palette, visualParams, movement } = analysis;
+      const ptr = pointerRef.current;
 
       const spec =
         isPlaying && getSpectrum
@@ -113,12 +148,12 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       const dayCode = `DAY // ${String(entry.indexNumber).padStart(2, '0')}`;
       ctx.fillText(dayCode, pad, headY);
 
-      // 4 цветовых чипа палитры фото
       const chipColors = entry.photos[0]?.dominantColors ?? [
         palette.accent,
         palette.secondary,
       ];
-      const chipStart = pad + ctx.measureText(dayCode).width + Math.round(W * 0.025);
+      const chipStart =
+        pad + ctx.measureText(dayCode).width + Math.round(W * 0.025);
       const chipSize = compact ? 7 : 10;
       chipColors.slice(0, 4).forEach((hex, cIdx) => {
         ctx.fillStyle = hex;
@@ -158,6 +193,10 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.rect(frameX, frameY, frameW, frameH);
       ctx.clip();
 
+      // Параллакс-сдвиг от курсора
+      const parallaxX = ptr.active ? (ptr.nx - 0.5) * 14 : 0;
+      const parallaxY = ptr.active ? (ptr.ny - 0.5) * 14 : 0;
+
       if (imgs.length > 0) {
         const isPinned =
           pinnedPhotoIndex !== null &&
@@ -178,7 +217,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
             : 0;
 
         const zoom =
-          1.02 +
+          1.03 +
           Math.sin(elapsed * 0.7 * visualParams.rhythmSpeed) * 0.025 +
           spec.bass * 0.045;
 
@@ -197,11 +236,12 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
             frameX +
             (frameW - dw) * 0.5 +
             Math.sin(elapsed * 0.5 + offsetAngle) *
-              (movement === 'film-35mm' ? 7 : 3);
-          const dy = frameY + (frameH - dh) * 0.5;
+              (movement === 'film-35mm' ? 7 : 3) -
+            parallaxX * 0.6;
+          const dy = frameY + (frameH - dh) * 0.5 - parallaxY * 0.6;
 
           ctx.filter = `contrast(${visualParams.contrastBoost}) saturate(${
-            movement === 'wabi-sabi' ? 0.76 : 1.08
+            movement === 'wabi-sabi' ? 0.78 : 1.1
           })`;
           ctx.drawImage(img, dx, dy, dw, dh);
           ctx.restore();
@@ -212,7 +252,6 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           drawCover(imgs[nextIdx], alphaNext, 1.5);
         }
       } else {
-        // Живая градиентная основа в палитре дня (например, в Live Studio до загрузки фото)
         const baseGrad = ctx.createLinearGradient(
           frameX,
           frameY,
@@ -228,21 +267,24 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.globalAlpha = 1;
       }
 
-      // 4. Художественный слой (переменные элементы системы)
+      // 4. Художественный слой (переменные элементы системы + реакция на курсор)
       const domColors = entry.photos[0]?.dominantColors ?? [
         palette.accent,
         palette.secondary,
       ];
 
       if (movement === 'impressionism') {
-        // Многослойные мазки кисти Моне + плавающие огни/пылинки света
         const strokeCount = compact ? 16 : 32;
         for (let i = 0; i < strokeCount; i++) {
           const angle = elapsed * 0.22 + i * 1.618;
           const bx =
-            frameX + (Math.sin(angle * 0.65 + i) * 0.5 + 0.5) * frameW;
+            frameX +
+            (Math.sin(angle * 0.65 + i) * 0.5 + 0.5) * frameW +
+            parallaxX * 0.4;
           const by =
-            frameY + (Math.cos(angle * 0.48 + i * 1.9) * 0.5 + 0.5) * frameH;
+            frameY +
+            (Math.cos(angle * 0.48 + i * 1.9) * 0.5 + 0.5) * frameH +
+            parallaxY * 0.4;
           const bw = (20 + (i % 5) * 12) * (1 + spec.energy * 0.5);
           const bh = bw * 0.36;
 
@@ -250,51 +292,47 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           ctx.translate(bx, by);
           ctx.rotate(Math.sin(i * 0.8 + elapsed * 0.18) * 0.7);
           ctx.fillStyle = domColors[i % domColors.length] ?? palette.accent;
-          ctx.globalAlpha = 0.12 + spec.mid * 0.15;
+          ctx.globalAlpha = 0.13 + spec.mid * 0.15;
           ctx.beginPath();
           ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
 
-        // Тёплые световые пылинки (боке)
         const dustCount = compact ? 8 : 18;
         for (let d = 0; d < dustCount; d++) {
           const dx =
-            frameX + ((Math.sin(d * 7.3 + elapsed * 0.18) * 0.5 + 0.5) * frameW);
-          const dy =
-            frameY +
-            (((d * 0.17 + elapsed * 0.04) % 1) * frameH);
+            frameX + (Math.sin(d * 7.3 + elapsed * 0.18) * 0.5 + 0.5) * frameW;
+          const dy = frameY + (((d * 0.17 + elapsed * 0.04) % 1) * frameH);
           const r = 3 + (d % 4) * 2.5 + spec.treble * 4;
-          ctx.fillStyle = 'rgba(255, 232, 185, 0.35)';
+          ctx.fillStyle = 'rgba(255, 232, 185, 0.36)';
           ctx.beginPath();
           ctx.arc(dx, dy, r, 0, Math.PI * 2);
           ctx.fill();
         }
 
         const glow = ctx.createRadialGradient(
-          frameX + frameW * 0.3,
-          frameY + frameH * 0.25,
+          frameX + frameW * (ptr.active ? ptr.nx : 0.3),
+          frameY + frameH * (ptr.active ? ptr.ny : 0.25),
           10,
           frameX + frameW * 0.5,
           frameY + frameH * 0.5,
           frameW * 0.82
         );
-        glow.addColorStop(0, 'rgba(255, 224, 172, 0.26)');
+        glow.addColorStop(0, 'rgba(255, 224, 172, 0.28)');
         glow.addColorStop(1, 'rgba(255, 224, 172, 0)');
         ctx.fillStyle = glow;
         ctx.fillRect(frameX, frameY, frameW, frameH);
       } else if (movement === 'constructivism') {
-        // Супрематическая/конструктивистская композиция Кандинского
-        const splitX = frameX + frameW * (0.28 + spec.bass * 0.08);
-        const splitY = frameY + frameH * (0.68 - spec.energy * 0.06);
+        const splitX =
+          frameX + frameW * (0.28 + spec.bass * 0.08) + parallaxX * 1.4;
+        const splitY =
+          frameY + frameH * (0.68 - spec.energy * 0.06) + parallaxY * 1.4;
 
-        // Полупрозрачная геометрическая плоскость
         ctx.fillStyle = palette.secondary;
         ctx.globalAlpha = 0.16 + spec.mid * 0.12;
         ctx.fillRect(frameX, splitY, splitX - frameX, frameY + frameH - splitY);
 
-        // Оси
         ctx.strokeStyle = palette.accent;
         ctx.lineWidth = compact ? 2 : 3;
         ctx.globalAlpha = 0.85;
@@ -305,9 +343,8 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.lineTo(frameX + frameW, splitY);
         ctx.stroke();
 
-        // Концентрические импульсные круги в правом верхнем квадранте
-        const cx = frameX + frameW * 0.77;
-        const cy = frameY + frameH * 0.24;
+        const cx = frameX + frameW * 0.77 - parallaxX * 1.1;
+        const cy = frameY + frameH * 0.24 - parallaxY * 1.1;
         const baseR = (20 + spec.bass * 38) * (compact ? 0.68 : 1);
 
         ctx.fillStyle = palette.accent;
@@ -320,17 +357,24 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.lineWidth = compact ? 1.2 : 2;
         ctx.globalAlpha = 0.6;
         ctx.beginPath();
-        ctx.arc(cx, cy, baseR * 1.45, elapsed * 0.8, elapsed * 0.8 + Math.PI * 1.3);
+        ctx.arc(
+          cx,
+          cy,
+          baseR * 1.45,
+          elapsed * 0.8,
+          elapsed * 0.8 + Math.PI * 1.3
+        );
         ctx.stroke();
 
-        // Диагональный вектор
         ctx.beginPath();
         ctx.moveTo(frameX + 20, frameY + frameH - 30);
-        ctx.lineTo(frameX + frameW * 0.64, frameY + 38);
+        ctx.lineTo(
+          frameX + frameW * 0.64 + parallaxX,
+          frameY + 38 + parallaxY
+        );
         ctx.stroke();
         ctx.globalAlpha = 1;
       } else if (movement === 'wabi-sabi') {
-        // Туманная дымка и японская эстетика тишины
         const mistGrad = ctx.createLinearGradient(
           frameX,
           frameY,
@@ -343,19 +387,20 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.fillStyle = mistGrad;
         ctx.fillRect(frameX, frameY, frameW, frameH);
 
-        // Тонкая асимметричная линия туши
         ctx.strokeStyle = palette.ink;
         ctx.globalAlpha = 0.38;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.moveTo(frameX + frameW * 0.1, frameY + frameH * 0.86);
+        ctx.moveTo(
+          frameX + frameW * 0.1,
+          frameY + frameH * 0.86 + parallaxY * 0.4
+        );
         ctx.lineTo(
-          frameX + frameW * (0.44 + spec.mid * 0.14),
-          frameY + frameH * 0.86
+          frameX + frameW * (0.44 + spec.mid * 0.14) + parallaxX,
+          frameY + frameH * 0.86 + parallaxY * 0.4
         );
         ctx.stroke();
 
-        // Миниатюрный красный штамп-печать (ханко) в углу кадра
         const stampSize = compact ? 18 : 26;
         const sx = frameX + frameW - stampSize - 14;
         const sy = frameY + frameH - stampSize - 14;
@@ -364,7 +409,9 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.lineWidth = compact ? 1.5 : 2;
         ctx.strokeRect(sx, sy, stampSize, stampSize);
         ctx.fillStyle = '#a83c32';
-        ctx.font = `600 ${Math.round(stampSize * 0.45)}px "JetBrains Mono", monospace`;
+        ctx.font = `600 ${Math.round(
+          stampSize * 0.45
+        )}px "JetBrains Mono", monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(
@@ -375,7 +422,6 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.textAlign = 'left';
         ctx.globalAlpha = 1;
       } else if (movement === 'film-35mm') {
-        // Перфорация Kodak/Ilford с номерами кадров
         ctx.fillStyle = 'rgba(18, 16, 14, 0.78)';
         const stripW = compact ? 16 : 24;
         ctx.fillRect(frameX, frameY, stripW, frameH);
@@ -384,7 +430,11 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.fillStyle = palette.surface;
         const holeStep = compact ? 22 : 30;
         const holeOffset = (elapsed * 16 * visualParams.rhythmSpeed) % holeStep;
-        for (let y = frameY - holeStep + holeOffset; y < frameY + frameH; y += holeStep) {
+        for (
+          let y = frameY - holeStep + holeOffset;
+          y < frameY + frameH;
+          y += holeStep
+        ) {
           if (y + holeStep * 0.46 < frameY || y > frameY + frameH) continue;
           ctx.fillRect(frameX + 3, y, stripW - 6, holeStep * 0.46);
           ctx.fillRect(
@@ -395,20 +445,132 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           );
         }
 
-        // Тёплая плёночная засветка (light leak)
+        const leakY = ptr.active ? frameY + frameH * ptr.ny : frameY + frameH * 0.25;
         const leak = ctx.createLinearGradient(
           frameX,
           frameY,
-          frameX + frameW * 0.36,
-          frameY + frameH * 0.25
+          frameX + frameW * 0.42,
+          leakY
         );
         leak.addColorStop(
           0,
-          `rgba(238, 122, 54, ${0.22 + spec.energy * 0.16})`
+          `rgba(245, 130, 54, ${0.24 + spec.energy * 0.18})`
         );
-        leak.addColorStop(1, 'rgba(238, 122, 54, 0)');
+        leak.addColorStop(1, 'rgba(245, 130, 54, 0)');
         ctx.fillStyle = leak;
         ctx.fillRect(frameX, frameY, frameW, frameH);
+      }
+
+      // 4B. Движок погодных частиц (дождь / гроза / снег / осенние листья / туман)
+      if (weatherType === 'rain' || weatherType === 'storm') {
+        const dropCount = compact ? 22 : 42;
+        ctx.strokeStyle = 'rgba(230, 240, 255, 0.28)';
+        ctx.lineWidth = compact ? 1 : 1.4;
+        for (let r = 0; r < dropCount; r++) {
+          const speed = 260 + (r % 5) * 45;
+          const rx =
+            frameX +
+            (((r * 97 + elapsed * 35) % frameW + frameW) % frameW);
+          const ry =
+            frameY +
+            (((r * 61 + elapsed * speed) % frameH + frameH) % frameH);
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx - 5, ry + (compact ? 14 : 22));
+          ctx.stroke();
+        }
+        if (
+          weatherType === 'storm' &&
+          Math.sin(elapsed * 1.9) > 0.96
+        ) {
+          ctx.fillStyle = 'rgba(240, 245, 255, 0.14)';
+          ctx.fillRect(frameX, frameY, frameW, frameH);
+        }
+      } else if (weatherType === 'snow') {
+        const flakeCount = compact ? 18 : 34;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        for (let s = 0; s < flakeCount; s++) {
+          const sx =
+            frameX +
+            ((s * 73 + Math.sin(elapsed * 0.9 + s) * 24) % frameW + frameW) %
+              frameW;
+          const sy =
+            frameY +
+            (((s * 59 + elapsed * (32 + (s % 4) * 10)) % frameH + frameH) %
+              frameH);
+          const sr = (compact ? 1.8 : 2.8) + (s % 3);
+          ctx.beginPath();
+          ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (weatherType === 'leaves') {
+        const leafCount = compact ? 10 : 18;
+        const leafCols = ['#f59e0b', '#ea580c', '#eab308', '#dc2626'];
+        for (let l = 0; l < leafCount; l++) {
+          const lx =
+            frameX +
+            ((l * 89 + Math.sin(elapsed * 0.7 + l) * 32) % frameW + frameW) %
+              frameW;
+          const ly =
+            frameY +
+            (((l * 67 + elapsed * (24 + (l % 3) * 8)) % frameH + frameH) %
+              frameH);
+          ctx.save();
+          ctx.translate(lx, ly);
+          ctx.rotate(elapsed * 0.9 + l);
+          ctx.fillStyle = leafCols[l % leafCols.length];
+          ctx.globalAlpha = 0.55;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, compact ? 5 : 8, compact ? 2.5 : 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      } else if (weatherType === 'mist') {
+        for (let m = 0; m < 3; m++) {
+          const mx =
+            frameX +
+            frameW * 0.5 +
+            Math.sin(elapsed * 0.25 + m * 2) * (frameW * 0.22);
+          const my = frameY + frameH * (0.35 + m * 0.22);
+          const mGrad = ctx.createRadialGradient(
+            mx,
+            my,
+            10,
+            mx,
+            my,
+            frameW * 0.55
+          );
+          mGrad.addColorStop(0, 'rgba(240, 248, 246, 0.18)');
+          mGrad.addColorStop(1, 'rgba(240, 248, 246, 0)');
+          ctx.fillStyle = mGrad;
+          ctx.fillRect(frameX, frameY, frameW, frameH);
+        }
+      }
+
+      // 4C. Интерактивный след кисти/света за курсором
+      if (ptr.trail.length > 0) {
+        ptr.trail = ptr.trail.filter((pt) => now - pt.born < 900);
+        for (const pt of ptr.trail) {
+          const life = 1 - (now - pt.born) / 900;
+          const px = frameX + pt.x * frameW;
+          const py = frameY + pt.y * frameH;
+          ctx.save();
+          ctx.globalAlpha = life * 0.36;
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          if (movement === 'constructivism') {
+            ctx.rect(
+              px - pt.size * life,
+              py - pt.size * life,
+              pt.size * 2 * life,
+              pt.size * 2 * life
+            );
+          } else {
+            ctx.arc(px, py, pt.size * life, 0, Math.PI * 2);
+          }
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       // Лёгкое плёночное зерно
@@ -431,7 +593,6 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       // 5. Постоянный нижний блок (название папки, трек, подпись, музейный индекс)
       const footerTop = H - pad * 0.55 - footerH;
 
-      // Тонкая разделительная линия над подвалом
       ctx.strokeStyle = palette.ink;
       ctx.globalAlpha = 0.15;
       ctx.lineWidth = 1;
@@ -449,7 +610,6 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.fillText(analysis.folderName, pad, footerTop + 10, W - pad * 2);
 
       const musicY = footerTop + Math.round(W * 0.072);
-      // Мини-спектр из 4 полосок
       for (let b = 0; b < 4; b++) {
         const bh = Math.round(
           6 +
@@ -482,20 +642,15 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.globalAlpha = 1;
       }
 
-      // Каталожный штамп в правом нижнем углу постера
       ctx.fillStyle = palette.ink;
       ctx.globalAlpha = 0.42;
       ctx.font = `500 ${Math.round(W * 0.016)}px "JetBrains Mono", monospace`;
       const stampText = movement.toUpperCase();
       const sw = ctx.measureText(stampText).width;
-      ctx.fillText(
-        stampText,
-        W - pad - sw,
-        musicY + Math.round(W * 0.052)
-      );
+      ctx.fillText(stampText, W - pad - sw, musicY + Math.round(W * 0.052));
       ctx.globalAlpha = 1;
 
-      if (!compact || isPlaying) {
+      if (!compact || isPlaying || ptr.active || ptr.trail.length > 0) {
         rafId = requestAnimationFrame(drawFrame);
       }
     };
@@ -504,9 +659,43 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     return () => cancelAnimationFrame(rafId);
   }, [entry, isPlaying, getSpectrum, compact, pinnedPhotoIndex, canvasRef]);
 
+  const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const domColors = entry.photos[0]?.dominantColors ?? [
+      entry.analysis.palette.accent,
+      entry.analysis.palette.secondary,
+    ];
+    const ptr = pointerRef.current;
+    ptr.nx = nx;
+    ptr.ny = ny;
+    ptr.active = true;
+    ptr.trail.push({
+      x: nx,
+      y: ny,
+      born: performance.now(),
+      color:
+        domColors[ptr.trail.length % domColors.length] ??
+        entry.analysis.palette.accent,
+      size: compact ? 14 : 24,
+    });
+    if (ptr.trail.length > 28) {
+      ptr.trail.shift();
+    }
+  };
+
+  const handlePointerLeave = () => {
+    pointerRef.current.active = false;
+  };
+
   return (
     <canvas
       ref={canvasRef}
+      onMouseMove={handlePointerMove}
+      onMouseLeave={handlePointerLeave}
       style={{
         width: '100%',
         height: 'auto',
@@ -514,6 +703,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         display: 'block',
         borderRadius: '4px',
         boxShadow: '0 14px 36px rgba(20, 18, 15, 0.12)',
+        cursor: compact ? 'pointer' : 'crosshair',
       }}
     />
   );

@@ -19,6 +19,7 @@ export function App() {
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [hoveredEntry, setHoveredEntry] = useState<DiaryEntry | null>(null);
   const [autoImmersive, setAutoImmersive] = useState(false);
+  const [autoReel, setAutoReel] = useState(false);
   const [theme, setTheme] = useState<GalleryTheme>('prism');
 
   useEffect(() => {
@@ -162,25 +163,40 @@ export function App() {
             hasPrev={selectedIdx > 0}
             hasNext={selectedIdx >= 0 && selectedIdx < entries.length - 1}
             initialImmersive={autoImmersive}
+            initialAutoReel={autoReel}
             onPrev={() => {
               if (selectedIdx > 0) {
                 setAutoImmersive(false);
+                setAutoReel(false);
                 setSelectedEntry(entries[selectedIdx - 1]);
               }
             }}
             onNext={() => {
               if (selectedIdx >= 0 && selectedIdx < entries.length - 1) {
                 setAutoImmersive(false);
+                setAutoReel(false);
                 setSelectedEntry(entries[selectedIdx + 1]);
               }
             }}
+            onNextReel={() => {
+              if (entries.length === 0) return;
+              const nextI =
+                selectedIdx >= 0 && selectedIdx < entries.length - 1
+                  ? selectedIdx + 1
+                  : 0;
+              setAutoImmersive(true);
+              setAutoReel(true);
+              setSelectedEntry(entries[nextI]);
+            }}
             onBack={() => {
               setAutoImmersive(false);
+              setAutoReel(false);
               setSelectedEntry(null);
               setView('archive');
             }}
             onEdit={(entry) => {
               setAutoImmersive(false);
+              setAutoReel(false);
               setEditingEntry(entry);
               setView('create');
             }}
@@ -197,12 +213,13 @@ export function App() {
             }}
           />
         ) : view === 'system' ? (
-          <VisualSystemPage />
+          <VisualSystemPage sampleEntry={entries[0]} />
         ) : (
           <ArchiveFeed
             entries={entries}
             onSelect={(entry) => {
               setAutoImmersive(false);
+              setAutoReel(false);
               setSelectedEntry(entry);
               setView('folder');
             }}
@@ -211,7 +228,15 @@ export function App() {
               const randomEntry =
                 entries[Math.floor(Math.random() * entries.length)];
               setAutoImmersive(true);
+              setAutoReel(false);
               setSelectedEntry(randomEntry);
+              setView('folder');
+            }}
+            onStartReel={() => {
+              if (entries.length === 0) return;
+              setAutoImmersive(true);
+              setAutoReel(true);
+              setSelectedEntry(entries[0]);
               setView('folder');
             }}
             onCreateNew={() => {
