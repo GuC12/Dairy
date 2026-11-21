@@ -236,11 +236,11 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           spec.bass * 0.045;
 
         const drawCover = (
-          img: HTMLImageElement,
+          img: HTMLImageElement | undefined,
           alpha: number,
           offsetAngle: number
         ) => {
-          if (!img.width || !img.height || alpha <= 0.01) return;
+          if (!img || !img.width || !img.height || alpha <= 0.01) return;
           ctx.save();
           ctx.globalAlpha = alpha;
           const scale = Math.max(frameW / img.width, frameH / img.height) * zoom;
