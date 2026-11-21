@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, FolderKanban, Plus, Settings2 } from 'lucide-react';
+import { BookOpen, FolderKanban, Plus } from 'lucide-react';
 import type { DiaryEntry } from './types/diary';
-import {
-  deleteDay,
-  loadAllDays,
-  resetToSeedDays,
-  saveDay,
-} from './storage/diaryDb';
+import { deleteDay, loadAllDays, saveDay } from './storage/diaryDb';
 import { ArchiveFeed } from './components/ArchiveFeed';
 import { DayFolderView } from './components/DayFolderView';
 import { CreateDayView } from './components/CreateDayView';
 import { VisualSystemPage } from './components/VisualSystemPage';
-import { SettingsModal } from './components/SettingsModal';
 import './App.css';
 
 type TabView = 'archive' | 'create' | 'system' | 'folder';
-
-const KEY_STORAGE = 'atmos_gemini_api_key';
 
 export function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
@@ -24,10 +16,6 @@ export function App() {
   const [view, setView] = useState<TabView>('archive');
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [geminiKey, setGeminiKey] = useState(
-    () => localStorage.getItem(KEY_STORAGE) ?? ''
-  );
 
   useEffect(() => {
     loadAllDays().then((days) => {
@@ -35,15 +23,6 @@ export function App() {
       setIsLoading(false);
     });
   }, []);
-
-  const handleSaveKey = (key: string) => {
-    setGeminiKey(key);
-    if (key) {
-      localStorage.setItem(KEY_STORAGE, key);
-    } else {
-      localStorage.removeItem(KEY_STORAGE);
-    }
-  };
 
   const handleCreated = async (entry: DiaryEntry) => {
     await saveDay(entry);
@@ -64,15 +43,6 @@ export function App() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
     setSelectedEntry(null);
     setView('archive');
-  };
-
-  const handleResetDemo = async () => {
-    setIsLoading(true);
-    const days = await resetToSeedDays();
-    setEntries(days);
-    setSelectedEntry(null);
-    setView('archive');
-    setIsLoading(false);
   };
 
   const nextIndex =
@@ -127,14 +97,7 @@ export function App() {
           </button>
         </nav>
 
-        <button
-          className="btn-ghost settings-btn"
-          onClick={() => setShowSettings(true)}
-          title="Настройки"
-        >
-          <Settings2 size={15} />
-          Настройки
-        </button>
+        <div className="brand-sub font-mono">4:5 UNIFIED ARCHIVE</div>
       </header>
 
       <main className="main-container">
@@ -158,7 +121,6 @@ export function App() {
         ) : view === 'create' ? (
           <CreateDayView
             nextIndex={nextIndex}
-            geminiApiKey={geminiKey}
             editingEntry={editingEntry}
             onCreated={handleCreated}
             onCancel={() => {
@@ -188,15 +150,6 @@ export function App() {
         <span>GENESIS HACKATHON // ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
         <span>4:5 UNIFIED VISUAL SYSTEM</span>
       </footer>
-
-      {showSettings && (
-        <SettingsModal
-          apiKey={geminiKey}
-          onSaveKey={handleSaveKey}
-          onResetDemo={handleResetDemo}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
     </div>
   );
 }
