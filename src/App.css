@@ -2785,4 +2785,14 @@
   font-size: 14px;
 }
 
+.auth-sub-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+
 

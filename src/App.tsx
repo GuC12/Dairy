@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ClerkProvider } from '@clerk/clerk-react';
 import {
   BookOpen,
   Cloud,
@@ -29,6 +30,7 @@ import {
   type WorldThemeId,
 } from './components/BackdropCanvas';
 import { AuthModal } from './components/AuthModal';
+import { ClerkBridge } from './components/ClerkBridge';
 import { ProfileModal } from './components/ProfileModal';
 import { WelcomeLanding } from './components/WelcomeLanding';
 import './App.css';
@@ -66,6 +68,7 @@ export function App() {
     }
   });
   const [cloudSynced, setCloudSynced] = useState(false);
+  const clerkSignOutRef = useRef<(() => Promise<void>) | null>(null);
 
   const currentUserId = activeUser?.id ?? null;
 
@@ -138,6 +141,18 @@ export function App() {
     }
   }, []);
 
+  const handleLogout = useCallback(async () => {
+    setShowProfileModal(false);
+    if (clerkSignOutRef.current) {
+      await clerkSignOutRef.current();
+    }
+    handleUserAuthenticated(null);
+  }, [handleUserAuthenticated]);
+
+  const registerClerkSignOut = useCallback((fn: () => Promise<void>) => {
+    clerkSignOutRef.current = fn;
+  }, []);
+
   const handleCreated = async (entry: DiaryEntry) => {
     if (!currentUserId) return;
     await saveDay(entry, currentUserId);
@@ -188,7 +203,7 @@ export function App() {
 
   const isDarkWorld = world === 'indigo';
 
-  return (
+  const content = (
     <div
       className={`app-shell ${
         isDarkWorld ? 'theme-prism' : 'theme-editorial'
@@ -311,7 +326,7 @@ export function App() {
               <button
                 type="button"
                 className="btn-ghost btn-auth-compact"
-                onClick={() => handleUserAuthenticated(null)}
+                onClick={handleLogout}
                 title="Выйти из аккаунта"
               >
                 <LogOut size={14} />
@@ -480,15 +495,26 @@ export function App() {
           user={activeUser}
           entries={entries}
           cloudSynced={cloudSynced}
-          onLogout={() => {
-            setShowProfileModal(false);
-            handleUserAuthenticated(null);
-          }}
+          onLogout={handleLogout}
           onClose={() => setShowProfileModal(false)}
         />
       )}
     </div>
   );
+
+  if (authCfg.hasClerk) {
+    return (
+      <ClerkProvider publishableKey={authCfg.clerkKey}>
+        <ClerkBridge
+          onUserChange={handleUserAuthenticated}
+          onRegisterSignOut={registerClerkSignOut}
+        />
+        {content}
+      </ClerkProvider>
+    );
+  }
+
+  return content;
 }
 
 export default App;

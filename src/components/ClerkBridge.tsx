@@ -1,28 +1,31 @@
 import React, { useEffect } from 'react';
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  useUser,
-} from '@clerk/clerk-react';
-import { Cloud, LogIn, UserPlus } from 'lucide-react';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import {
   syncUserProfileToSupabase,
   type AppUserProfile,
 } from '../lib/supabaseClient';
 
 interface ClerkBridgeProps {
-  hasSupabase: boolean;
   onUserChange: (user: AppUserProfile | null) => void;
+  onRegisterSignOut: (fn: () => Promise<void>) => void;
 }
 
 export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
-  hasSupabase,
   onUserChange,
+  onRegisterSignOut,
 }) => {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+
+  useEffect(() => {
+    onRegisterSignOut(async () => {
+      try {
+        await signOut();
+      } catch {
+        // ignore
+      }
+    });
+  }, [signOut, onRegisterSignOut]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -31,58 +34,18 @@ export const ClerkBridge: React.FC<ClerkBridgeProps> = ({
         id: user.id,
         email: user.primaryEmailAddress?.emailAddress ?? '',
         fullName:
-          user.fullName ||
-          user.firstName ||
           user.username ||
+          user.firstName ||
+          user.fullName ||
           user.primaryEmailAddress?.emailAddress?.split('@')[0] ||
-          'Автор дневника',
+          'author',
         avatarUrl: user.imageUrl,
         provider: 'clerk',
       };
       syncUserProfileToSupabase(profile).catch(() => {});
       onUserChange(profile);
-    } else {
-      onUserChange(null);
     }
   }, [isLoaded, isSignedIn, user, onUserChange]);
 
-  return (
-    <div className="header-auth-wrap">
-      <SignedOut>
-        <SignInButton mode="modal">
-          <button type="button" className="btn-secondary btn-auth-compact">
-            <LogIn size={14} />
-            Вход
-          </button>
-        </SignInButton>
-        <SignUpButton mode="modal">
-          <button type="button" className="btn-primary btn-auth-compact">
-            <UserPlus size={14} />
-            Регистрация
-          </button>
-        </SignUpButton>
-      </SignedOut>
-
-      <SignedIn>
-        <div className="user-pill-box">
-          {user && (
-            <span className="user-badge font-mono">
-              {user.firstName ||
-                user.username ||
-                user.primaryEmailAddress?.emailAddress?.split('@')[0]}
-            </span>
-          )}
-          {hasSupabase && (
-            <span
-              className="cloud-sync-dot font-mono"
-              title="Синхронизировано с Supabase"
-            >
-              <Cloud size={12} />
-            </span>
-          )}
-          <UserButton />
-        </div>
-      </SignedIn>
-    </div>
-  );
+  return null;
 };
