@@ -121,7 +121,7 @@ select {
   opacity: 0.42;
 }
 
-.app-shell > *:not(.backdrop-live-canvas):not(.aurora-grid-overlay) {
+.app-shell > *:not(.backdrop-live-canvas):not(.aurora-grid-overlay):not(.lightbox-overlay) {
   position: relative;
   z-index: 2;
 }
