@@ -469,51 +469,66 @@ export async function suggestMusicForDay(
         ) / photos.length
       : 0;
 
+  const pickFromPool = (pool: Array<Omit<MusicInput, 'mode' | 'url'>>): MusicInput => {
+    let hash = 0;
+    const seed = `${lower}:${photos[0]?.dominantColors[0] ?? ''}`;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    const chosen = pool[hash % pool.length];
+    return {
+      mode: 'link',
+      ...chosen,
+      url: `https://open.spotify.com/search/${encodeURIComponent(`${chosen.artist} ${chosen.title}`)}`,
+    };
+  };
+
   let fallback: MusicInput;
-  if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум)/.test(lower)) {
-    fallback = {
-      mode: 'link',
-      artist: 'Rival Consoles',
-      title: 'Recovery',
-      genre: 'Electronic / IDM',
-      bpm: 128,
-      tonality: 'minor',
-      energy: 0.82,
-      url: 'https://open.spotify.com/search/Rival%20Consoles%20Recovery',
-    };
+  if (/(закат|золотой|перекрёст|перекрест|солнц|тени|двор)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Cigarettes After Sex', title: 'Sunsetz', genre: 'Dream Pop', bpm: 94, tonality: 'major', energy: 0.38 },
+      { artist: 'Nujabes', title: 'Feather', genre: 'Jazz Hop / Lo-Fi', bpm: 88, tonality: 'major', energy: 0.52 },
+      { artist: 'Mac DeMarco', title: 'Salad Days', genre: 'Indie / Jangle Pop', bpm: 108, tonality: 'major', energy: 0.54 },
+    ]);
+  } else if (/(кот|кош|собак|питом|уют|брусчат)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Nujabes', title: 'Feather', genre: 'Jazz Hop / Lo-Fi', bpm: 88, tonality: 'major', energy: 0.52 },
+      { artist: 'Belle and Sebastian', title: 'Another Sunny Day', genre: 'Indie Pop', bpm: 122, tonality: 'major', energy: 0.68 },
+      { artist: 'Lamp', title: 'Yume Utsutsu', genre: 'Shibuya-kei / Jazz Pop', bpm: 92, tonality: 'major', energy: 0.45 },
+    ]);
+  } else if (/(небо|поле|облак|воздух|трав|природ|лес|горы)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Tycho', title: 'Awake', genre: 'Ambient / Chillwave', bpm: 120, tonality: 'major', energy: 0.58 },
+      { artist: 'Bon Iver', title: 'Holocene', genre: 'Indie Folk', bpm: 92, tonality: 'major', energy: 0.42 },
+      { artist: 'Ludovico Einaudi', title: 'Nuvole Bianche', genre: 'Modern Classical', bpm: 78, tonality: 'major', energy: 0.34 },
+    ]);
+  } else if (/(город|панорам|крыш|высот|улиц|ветер|вечер|ночь)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Кино', title: 'Спокойная ночь', genre: 'Post-Punk / Indie Rock', bpm: 96, tonality: 'minor', energy: 0.48 },
+      { artist: 'Coldplay', title: 'Strawberry Swing', genre: 'Indie Pop', bpm: 112, tonality: 'major', energy: 0.62 },
+      { artist: 'Kavinsky', title: 'Nightcall', genre: 'Synthwave', bpm: 91, tonality: 'minor', energy: 0.56 },
+    ]);
+  } else if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Rival Consoles', title: 'Recovery', genre: 'Electronic / IDM', bpm: 128, tonality: 'minor', energy: 0.82 },
+      { artist: 'Jon Hopkins', title: 'Open Eye Signal', genre: 'Electronic / Techno', bpm: 125, tonality: 'minor', energy: 0.84 },
+    ]);
   } else if (/(туман|море|поезд|тишин|дожд|груст|утро|один)/.test(lower)) {
-    fallback = {
-      mode: 'link',
-      artist: 'Nils Frahm',
-      title: 'Says',
-      genre: 'Modern Classical / Ambient',
-      bpm: 72,
-      tonality: 'minor',
-      energy: 0.3,
-      url: 'https://open.spotify.com/search/Nils%20Frahm%20Says',
-    };
-  } else if (avgWarmth > 0.05 || /(парк|какао|осень|тепл|тёпл|уют|свеч|винил|любл)/.test(lower)) {
-    fallback = {
-      mode: 'link',
-      artist: 'Frank Sinatra',
-      title: 'Autumn in New York',
-      genre: 'Vocal Jazz',
-      bpm: 76,
-      tonality: 'major',
-      energy: 0.35,
-      url: 'https://open.spotify.com/search/Frank%20Sinatra%20Autumn%20in%20New%20York',
-    };
+    fallback = pickFromPool([
+      { artist: 'Nils Frahm', title: 'Says', genre: 'Modern Classical / Ambient', bpm: 72, tonality: 'minor', energy: 0.3 },
+      { artist: 'Ólafur Arnalds', title: 'Near Light', genre: 'Ambient / Neoclassical', bpm: 76, tonality: 'minor', energy: 0.32 },
+    ]);
+  } else if (avgWarmth > 0.05 || /(парк|какао|осень|тепл|тёпл|свеч|винил|любл)/.test(lower)) {
+    fallback = pickFromPool([
+      { artist: 'Frank Sinatra', title: 'Autumn in New York', genre: 'Vocal Jazz', bpm: 76, tonality: 'major', energy: 0.35 },
+      { artist: 'Chet Baker', title: 'Almost Blue', genre: 'Cool Jazz', bpm: 68, tonality: 'minor', energy: 0.28 },
+    ]);
   } else {
-    fallback = {
-      mode: 'link',
-      artist: 'Khruangbin',
-      title: 'White Gloves',
-      genre: 'Indie / Psychedelic Soul',
-      bpm: 98,
-      tonality: 'major',
-      energy: 0.52,
-      url: 'https://open.spotify.com/search/Khruangbin%20White%20Gloves',
-    };
+    fallback = pickFromPool([
+      { artist: 'Khruangbin', title: 'White Gloves', genre: 'Indie / Psychedelic Soul', bpm: 98, tonality: 'major', energy: 0.52 },
+      { artist: 'Tame Impala', title: 'Borderline', genre: 'Psychedelic Pop', bpm: 98, tonality: 'major', energy: 0.66 },
+      { artist: 'Men I Trust', title: 'Show Me How', genre: 'Dream Pop', bpm: 88, tonality: 'major', energy: 0.44 },
+    ]);
   }
 
   if (!geminiApiKey || !geminiApiKey.trim()) {
