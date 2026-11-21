@@ -1,0 +1,646 @@
+import React, { useMemo, useState } from 'react';
+import {
+  ImagePlus,
+  Link2,
+  Loader2,
+  Music,
+  Sparkles,
+  Upload,
+  Wand2,
+  X,
+} from 'lucide-react';
+import type { DiaryEntry, MusicInput, PhotoItem } from '../types/diary';
+import { analyzeDataUrl, analyzePhotoFile } from '../engine/photoAnalyzer';
+import { analyzeAudioFile } from '../engine/audioAnalyzer';
+import {
+  analyzeDayAtmosphere,
+  analyzeLocally,
+  suggestMusicForDay,
+} from '../engine/atmosphereEngine';
+import { MemoryCanvas } from './MemoryCanvas';
+
+interface CreateDayViewProps {
+  nextIndex: number;
+  geminiApiKey?: string;
+  onCreated: (entry: DiaryEntry) => void;
+  onCancel: () => void;
+}
+
+function createQuickAtmosphericPhoto(seedText: string): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = 720;
+  canvas.height = 540;
+  const ctx = canvas.getContext('2d')!;
+  const isNight = /(ноч|офис|гроз|темн)/i.test(seedText);
+  const isWarm = /(парк|какао|осень|тепл|закат|солн)/i.test(seedText);
+
+  const grad = ctx.createLinearGradient(0, 0, 720, 540);
+  if (isNight) {
+    grad.addColorStop(0, '#101928');
+    grad.addColorStop(1, '#253652');
+  } else if (isWarm) {
+    grad.addColorStop(0, '#e2a866');
+    grad.addColorStop(1, '#7c3f21');
+  } else {
+    grad.addColorStop(0, '#a8b7b4');
+    grad.addColorStop(1, '#4c5b5d');
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 720, 540);
+
+  for (let i = 0; i < 24; i++) {
+    ctx.fillStyle = isNight
+      ? 'rgba(130, 185, 240, 0.18)'
+      : isWarm
+        ? 'rgba(255, 224, 155, 0.25)'
+        : 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.arc(
+      (i * 113) % 720,
+      (i * 71) % 540,
+      20 + (i % 5) * 14,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+  return canvas.toDataURL('image/jpeg', 0.86);
+}
+
+export const CreateDayView: React.FC<CreateDayViewProps> = ({
+  nextIndex,
+  geminiApiKey,
+  onCreated,
+  onCancel,
+}) => {
+  const [text, setText] = useState('');
+  const [dateLabel, setDateLabel] = useState(() =>
+    new Date().toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+  );
+  const [weather, setWeather] = useState('');
+  const [location, setLocation] = useState('');
+  const [signature, setSignature] = useState('');
+
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [isAnalyzingPhotos, setIsAnalyzingPhotos] = useState(false);
+
+  const [musicMode, setMusicMode] = useState<'link' | 'file'>('link');
+  const [musicTitle, setMusicTitle] = useState('');
+  const [musicArtist, setMusicArtist] = useState('');
+  const [musicGenre, setMusicGenre] = useState('Indie / Acoustic');
+  const [musicUrl, setMusicUrl] = useState('');
+  const [musicBpm, setMusicBpm] = useState(92);
+  const [musicTonality, setMusicTonality] = useState<'major' | 'minor'>('major');
+  const [musicEnergy, setMusicEnergy] = useState(0.45);
+  const [audioDataUrl, setAudioDataUrl] = useState<string | undefined>(undefined);
+  const [audioFileName, setAudioFileName] = useState<string | undefined>(undefined);
+  const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSuggestingMusic, setIsSuggestingMusic] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAutoPickMusic = async () => {
+    setIsSuggestingMusic(true);
+    setError(null);
+    try {
+      const picked = await suggestMusicForDay(
+        text.trim() || 'Спокойный вечер',
+        photos,
+        geminiApiKey
+      );
+      setMusicMode('link');
+      setMusicArtist(picked.artist);
+      setMusicTitle(picked.title);
+      setMusicGenre(picked.genre);
+      setMusicBpm(picked.bpm);
+      setMusicTonality(picked.tonality);
+      setMusicEnergy(picked.energy);
+      setMusicUrl(picked.url ?? '');
+    } finally {
+      setIsSuggestingMusic(false);
+    }
+  };
+
+  // Живое превью страницы 4:5 в реальном времени!
+  const livePreviewEntry: DiaryEntry = useMemo(() => {
+    const previewMusic: MusicInput = {
+      mode: musicMode,
+      title: musicTitle.trim() || audioFileName || 'Атмосфера дня',
+      artist: musicArtist.trim(),
+      genre: musicGenre.trim() || 'Ambient',
+      bpm: musicBpm,
+      tonality: musicTonality,
+      energy: musicEnergy,
+      url: musicUrl.trim() || undefined,
+      audioDataUrl,
+      fileName: audioFileName,
+    };
+
+    const previewText =
+      text.trim() || 'Напишите о своём дне, чтобы увидеть, как меняется атмосфера...';
+    const analysis = analyzeLocally(previewText, photos, previewMusic);
+
+    return {
+      id: 'live_preview',
+      indexNumber: nextIndex,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      dateLabel: dateLabel.trim() || 'Сегодня',
+      weather: weather.trim() || undefined,
+      location: location.trim() || undefined,
+      text: previewText,
+      signature: signature.trim() || analysis.folderName,
+      photos,
+      music: previewMusic,
+      analysis,
+    };
+  }, [
+    text,
+    dateLabel,
+    weather,
+    location,
+    signature,
+    photos,
+    musicMode,
+    musicTitle,
+    musicArtist,
+    musicGenre,
+    musicUrl,
+    musicBpm,
+    musicTonality,
+    musicEnergy,
+    audioDataUrl,
+    audioFileName,
+    nextIndex,
+  ]);
+
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsAnalyzingPhotos(true);
+    setError(null);
+    try {
+      const added: PhotoItem[] = [];
+      for (const file of Array.from(files).slice(0, 5)) {
+        if (!file.type.startsWith('image/')) continue;
+        const item = await analyzePhotoFile(file);
+        added.push(item);
+      }
+      setPhotos((prev) => [...prev, ...added].slice(0, 6));
+    } catch {
+      setError('Не удалось прочитать одно из изображений.');
+    } finally {
+      setIsAnalyzingPhotos(false);
+    }
+  };
+
+  const handleGenerateTestPhoto = async () => {
+    setIsAnalyzingPhotos(true);
+    try {
+      const dataUrl = createQuickAtmosphericPhoto(text);
+      const item = await analyzeDataUrl(dataUrl, `generated_${Date.now()}.jpg`);
+      setPhotos((prev) => [...prev, item].slice(0, 6));
+    } finally {
+      setIsAnalyzingPhotos(false);
+    }
+  };
+
+  const handleAudioUpload = async (file: File | null) => {
+    if (!file) return;
+    setIsAnalyzingAudio(true);
+    setError(null);
+    try {
+      const { dataUrl, metrics } = await analyzeAudioFile(file);
+      setAudioDataUrl(dataUrl);
+      setAudioFileName(file.name);
+      setMusicBpm(metrics.bpm);
+      setMusicEnergy(metrics.energy);
+      if (!musicTitle) {
+        setMusicTitle(file.name.replace(/\.[^.]+$/, ''));
+      }
+    } catch {
+      setError('Не удалось проанализировать аудиофайл.');
+    } finally {
+      setIsAnalyzingAudio(false);
+    }
+  };
+
+  const fillQuickExample = async () => {
+    const sampleText =
+      'Вечером после дождя вышли на набережную. Город отражался в лужах жёлтыми фонарями, мы купили горячие булочки с корицей и слушали старый винил через один наушник.';
+    setText(sampleText);
+    setWeather('+6°C, после дождя');
+    setLocation('Набережная');
+    setSignature('Огни на мокром асфальте');
+    setMusicMode('link');
+    setMusicArtist('Chet Baker');
+    setMusicTitle('Almost Blue');
+    setMusicGenre('Cool Jazz');
+    setMusicBpm(72);
+    setMusicTonality('minor');
+    setMusicEnergy(0.32);
+    setMusicUrl('https://open.spotify.com/search/Chet%20Baker%20Almost%20Blue');
+
+    if (photos.length === 0) {
+      const dataUrl = createQuickAtmosphericPhoto(sampleText);
+      const item = await analyzeDataUrl(dataUrl, 'demo_evening.jpg');
+      setPhotos([item]);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) {
+      setError('Напишите хотя бы пару предложений о том, как прошёл день.');
+      return;
+    }
+    if (photos.length === 0) {
+      setError('Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).');
+      return;
+    }
+    if (!musicTitle.trim() && musicMode === 'link') {
+      setError('Укажите название песни или загрузите аудиофайл.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const music: MusicInput = {
+        mode: musicMode,
+        title: musicTitle.trim() || audioFileName || 'Без названия',
+        artist: musicArtist.trim(),
+        genre: musicGenre.trim() || 'Ambient',
+        bpm: musicBpm,
+        tonality: musicTonality,
+        energy: musicEnergy,
+        url: musicMode === 'link' ? musicUrl.trim() || undefined : undefined,
+        audioDataUrl: musicMode === 'file' ? audioDataUrl : undefined,
+        fileName: audioFileName,
+      };
+
+      const analysis = await analyzeDayAtmosphere(
+        text.trim(),
+        photos,
+        music,
+        geminiApiKey
+      );
+
+      const newEntry: DiaryEntry = {
+        id: `day_${Date.now()}`,
+        indexNumber: nextIndex,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        dateLabel: dateLabel.trim() || 'Сегодня',
+        weather: weather.trim() || undefined,
+        location: location.trim() || undefined,
+        text: text.trim(),
+        signature: signature.trim() || analysis.folderName,
+        photos,
+        music,
+        analysis,
+      };
+
+      onCreated(newEntry);
+    } catch {
+      setError('Произошла ошибка при сборке воспоминания.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="studio-view view-enter">
+      <div className="create-header">
+        <div>
+          <div className="font-mono section-kicker">
+            LIVE STUDIO // DAY {String(nextIndex).padStart(2, '0')}
+          </div>
+          <h1 className="font-serif create-title">Сохранить атмосферу дня</h1>
+        </div>
+        <div className="create-header-actions">
+          <button type="button" className="btn-ghost" onClick={fillQuickExample}>
+            <Sparkles size={15} />
+            Заполнить пример
+          </button>
+          <button type="button" className="btn-ghost" onClick={onCancel}>
+            Отмена
+          </button>
+        </div>
+      </div>
+
+      <div className="studio-grid">
+        <form className="create-form" onSubmit={handleSubmit}>
+          {/* 1. Текст дня */}
+          <div className="form-card">
+            <label className="form-label font-mono">01 // КАК ПРОШЁЛ ДЕНЬ</label>
+            <textarea
+              className="textarea-main"
+              rows={4}
+              placeholder="Опишите погоду, свет, звуки, людей рядом и главное ощущение этого дня..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+
+            <div className="meta-inputs-grid">
+              <div>
+                <label className="mini-label font-mono">Дата</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={dateLabel}
+                  onChange={(e) => setDateLabel(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Погода (опц.)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="+8°C, туман"
+                  value={weather}
+                  onChange={(e) => setWeather(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Место (опц.)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Парк, офис, поезд..."
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Подпись на странице</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Короткая фраза внизу..."
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Фотографии */}
+          <div className="form-card">
+            <div className="form-card-head">
+              <label className="form-label font-mono">
+                02 // ФОТОГРАФИИ ДНЯ (1–6 ШТ.)
+              </label>
+              <div className="photo-head-actions">
+                {isAnalyzingPhotos && (
+                  <span className="font-mono analyzing-badge">
+                    <Loader2 size={13} className="spin" /> Анализ цвета...
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={handleGenerateTestPhoto}
+                >
+                  <Wand2 size={14} /> Тестовый кадр
+                </button>
+              </div>
+            </div>
+
+            <label className="upload-dropzone">
+              <ImagePlus size={20} />
+              <span>Загрузить фото (цвета и свет определятся автоматически)</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => handlePhotoUpload(e.target.files)}
+              />
+            </label>
+
+            {photos.length > 0 && (
+              <div className="uploaded-photos-grid">
+                {photos.map((ph) => (
+                  <div key={ph.id} className="uploaded-photo-item">
+                    <img src={ph.dataUrl} alt={ph.name} />
+                    <button
+                      type="button"
+                      className="remove-photo-btn"
+                      onClick={() =>
+                        setPhotos((prev) => prev.filter((p) => p.id !== ph.id))
+                      }
+                    >
+                      <X size={13} />
+                    </button>
+                    <div className="swatch-row">
+                      {ph.dominantColors.map((c) => (
+                        <span
+                          key={c}
+                          className="swatch"
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Музыка */}
+          <div className="form-card">
+            <div className="form-card-head">
+              <label className="form-label font-mono">03 // ПЕСНЯ ЭТОГО ДНЯ</label>
+              <div className="mode-tabs">
+                <button
+                  type="button"
+                  className={`mode-tab ${musicMode === 'link' ? 'active' : ''}`}
+                  onClick={() => setMusicMode('link')}
+                >
+                  <Link2 size={14} /> Ссылка / Трек
+                </button>
+                <button
+                  type="button"
+                  className={`mode-tab ${musicMode === 'file' ? 'active' : ''}`}
+                  onClick={() => setMusicMode('file')}
+                >
+                  <Upload size={14} /> Аудиофайл
+                </button>
+                <button
+                  type="button"
+                  className="mode-tab"
+                  onClick={handleAutoPickMusic}
+                  disabled={isSuggestingMusic}
+                  title="Автоматически подобрать песню под текст и фото"
+                >
+                  {isSuggestingMusic ? (
+                    <Loader2 size={14} className="spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  Подобрать по дню
+                </button>
+              </div>
+            </div>
+
+            {musicMode === 'file' && (
+              <label className="upload-dropzone upload-audio">
+                <Music size={20} />
+                <span>
+                  {isAnalyzingAudio
+                    ? 'Анализируем BPM и энергию трека...'
+                    : audioFileName
+                      ? `Загружен: ${audioFileName} (${musicBpm} BPM)`
+                      : 'Загрузите MP3 / WAV / OGG — темп и энергия определятся автоматически'}
+                </span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  hidden
+                  onChange={(e) => handleAudioUpload(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            )}
+
+            <div className="meta-inputs-grid">
+              <div>
+                <label className="mini-label font-mono">Исполнитель</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Frank Sinatra, Brian Eno..."
+                  value={musicArtist}
+                  onChange={(e) => setMusicArtist(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Название трека *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Autumn in New York"
+                  value={musicTitle}
+                  onChange={(e) => setMusicTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Жанр</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={musicGenre}
+                  onChange={(e) => setMusicGenre(e.target.value)}
+                />
+              </div>
+              {musicMode === 'link' && (
+                <div>
+                  <label className="mini-label font-mono">Ссылка (Spotify / YouTube)</label>
+                  <input
+                    type="url"
+                    className="input-field"
+                    placeholder="https://..."
+                    value={musicUrl}
+                    onChange={(e) => setMusicUrl(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="music-sliders-row">
+              <div>
+                <label className="mini-label font-mono">Темп: {musicBpm} BPM</label>
+                <input
+                  type="range"
+                  min={55}
+                  max={165}
+                  value={musicBpm}
+                  onChange={(e) => setMusicBpm(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">
+                  Энергия: {Math.round(musicEnergy * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={musicEnergy}
+                  onChange={(e) => setMusicEnergy(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="mini-label font-mono">Тональность</label>
+                <div className="tonality-toggle">
+                  <button
+                    type="button"
+                    className={musicTonality === 'major' ? 'active' : ''}
+                    onClick={() => setMusicTonality('major')}
+                  >
+                    Мажор
+                  </button>
+                  <button
+                    type="button"
+                    className={musicTonality === 'minor' ? 'active' : ''}
+                    onClick={() => setMusicTonality('minor')}
+                  >
+                    Минор
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {error && <div className="form-error">{error}</div>}
+
+          <div className="form-submit-row">
+            <button
+              type="submit"
+              className="btn-primary btn-large"
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 size={18} className="spin" />
+                  Сохраняем папку дня...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={18} />
+                  Сохранить воспоминание и папку дня
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Правая колонка: живой предпросмотр в реальном времени */}
+        <aside className="studio-preview">
+          <div className="preview-header font-mono">
+            <span>LIVE PREVIEW // 4:5</span>
+            <span className="preview-regime">
+              {livePreviewEntry.analysis.movementTitle}
+            </span>
+          </div>
+
+          <MemoryCanvas entry={livePreviewEntry} isPlaying />
+
+          <div className="preview-logic-hint">
+            <div className="font-mono preview-folder-tag">
+              Папка: «{livePreviewEntry.analysis.folderName}»
+            </div>
+            <div className="preview-sub">
+              Настроение: {livePreviewEntry.analysis.moodLabel} · Ритм{' '}
+              {livePreviewEntry.analysis.visualParams.rhythmSpeed}×
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+};

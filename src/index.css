@@ -1,0 +1,117 @@
+:root {
+  --bg-page: #0c0c0b;
+  --bg-card: #141412;
+  --bg-elevated: #191917;
+  --bg-glass: rgba(18, 18, 16, 0.78);
+  --border-subtle: rgba(242, 239, 233, 0.1);
+  --border-hover: rgba(242, 239, 233, 0.28);
+  --border-strong: #f2efe9;
+
+  --text-primary: #f2efe9;
+  --text-secondary: #b5afa4;
+  --text-muted: #767168;
+
+  --accent-warm: #e07a47;
+  --accent-soft: rgba(224, 122, 71, 0.16);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-hand: 'Caveat', cursive;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-hand {
+  font-family: var(--font-hand);
+}
+
+/* Тонкая архитектурная сетка + мягкое верхнее свечение галереи */
+.bg-gallery-grid {
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(224, 122, 71, 0.08), transparent 55%),
+    linear-gradient(to right, rgba(242, 239, 233, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(242, 239, 233, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
+
+/* Тонкое плёночное зерно поверх всего экрана */
+.bg-gallery-grid::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.app-shell > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.88);
+    box-shadow: 0 0 0 6px rgba(229, 72, 77, 0);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2c2b28;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #474540;
+}
