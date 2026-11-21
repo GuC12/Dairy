@@ -17,7 +17,7 @@ export const AtmosphereCompass: React.FC<AtmosphereCompassProps> = ({
   return (
     <div className={`compass-card ${compact ? 'compass-compact' : ''}`}>
       <div className="compass-head font-mono">
-        <span>КОМПАС АТМОСФЕРЫ // VALENCE × ENERGY</span>
+        <span>КОМПАС АТМОСФЕРЫ // НАСТРОЕНИЕ × ЭНЕРГИЯ</span>
       </div>
 
       <div className="compass-plane">

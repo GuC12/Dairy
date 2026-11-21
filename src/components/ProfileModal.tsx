@@ -109,7 +109,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <span>·</span>
               <span className="profile-cloud-tag">
                 <Cloud size={12} />
-                {cloudSynced ? 'Supabase Cloud Sync' : 'Локальный + Supabase'}
+                {cloudSynced ? 'Облако синхронизировано' : 'Локальный + Облако'}
               </span>
             </div>
           </div>

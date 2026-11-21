@@ -128,7 +128,9 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
       <div className="welcome-grid">
         <div className="welcome-left">
           <div className="genesis-exe-bar font-mono">
-            <span className="exe-title">[ yourdiary.exe // personal_vault ]</span>
+            <span className="exe-title">
+              [ личный_дневник // архив_воспоминаний ]
+            </span>
             <div className="exe-squares">
               <span style={{ background: '#f59e0b' }} />
               <span style={{ background: '#38bdf8' }} />
@@ -183,8 +185,8 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
               <div>
                 <h3>03 // Личный архив каждого аккаунта</h3>
                 <p>
-                  У каждого пользователя свой приватный дневник с синхронизацией
-                  через Clerk и Supabase.
+                  У каждого пользователя свой приватный дневник с облачной
+                  синхронизацией записей.
                 </p>
               </div>
             </div>

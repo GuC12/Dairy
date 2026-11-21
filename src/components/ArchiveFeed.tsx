@@ -140,7 +140,9 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
       <div className="archive-hero">
         <div className="hero-left-col">
           <div className="genesis-exe-bar font-mono">
-            <span className="exe-title">[ yourdiary.exe // personal_archive ]</span>
+            <span className="exe-title">
+              [ личный_дневник // архив_воспоминаний ]
+            </span>
             <div className="exe-squares">
               <span style={{ background: '#f59e0b' }} />
               <span style={{ background: '#38bdf8' }} />
@@ -150,8 +152,8 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           </div>
 
           <h1 className="font-serif hero-title">
-            Make the <span className="hero-gradient-word">Invisible</span>{' '}
-            <em>Visible_</em>
+            Сделать <span className="hero-gradient-word">Невидимое</span>{' '}
+            <em>Видимым_</em>
           </h1>
 
           <p className="hero-subtitle">
@@ -492,7 +494,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                   {layoutMode === 'editorial' && (
                     <div className="editorial-spread-body">
                       <div className="editorial-date-line font-mono">
-                        DAY // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
+                        ДЕНЬ // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
                         {entry.dateLabel}
                         {entry.location ? ` · ${entry.location}` : ''}
                         {entry.weather ? ` · ${entry.weather}` : ''}

@@ -117,7 +117,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
     <div className="system-page view-enter">
       <div className="system-header">
         <div className="font-mono section-kicker">
-          ARCHITECTURE & VISUAL GRAMMAR
+          АРХИТЕКТУРА И ВИЗУАЛЬНАЯ ГРАММАТИКА
         </div>
         <h1 className="font-serif create-title">
           Единая визуальная система дневника
@@ -276,7 +276,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
             </li>
             <li>
               <strong>Типографическая иерархия:</strong> моноширинный индекс{' '}
-              <code>DAY // 01</code>, дата и погода сверху; поэтичный заголовок
+              <code>ДЕНЬ // 01</code>, дата и погода сверху; поэтичный заголовок
               папки (3–7 слов) на антикве <em>Cormorant Garamond</em> и личная
               рукописная подпись снизу.
             </li>
@@ -405,7 +405,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
           </div>
           <ul className="system-list">
             <li>
-              <strong>Frontend:</strong> React 19, TypeScript, Vite.
+              <strong>Клиентская часть:</strong> React 19, TypeScript, Vite.
             </li>
             <li>
               <strong>Графика и физика холста:</strong> HTML5 Canvas 2D

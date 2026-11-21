@@ -36,8 +36,8 @@ import './App.css';
 type TabView = 'archive' | 'create' | 'system' | 'folder';
 
 const WORLD_LIST: Array<{ id: WorldThemeId; label: string }> = [
-  { id: 'indigo', label: 'Velvet Indigo' },
-  { id: 'turrell', label: 'Turrell Dawn' },
+  { id: 'indigo', label: 'Бархатный Индиго' },
+  { id: 'turrell', label: 'Рассвет Таррелла' },
 ];
 
 const SESSION_USER_KEY = 'yourdiary_active_session_user';
@@ -215,7 +215,9 @@ export function App() {
         >
           <span className="brand-dot animate-pulse-dot" />
           <span className="brand-name font-mono">YourDiary</span>
-          <span className="brand-sub font-mono">// PERSONAL MEMORY VAULT</span>
+          <span className="brand-sub font-mono">
+            // ЛИЧНЫЙ АРХИВ ВОСПОМИНАНИЙ
+          </span>
         </div>
 
         <nav className="topnav">
@@ -272,11 +274,12 @@ export function App() {
               const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
               setWorld(next.id);
             }}
-            title="Переключить тему сайта (Velvet Indigo / Turrell Dawn)"
+            title="Переключить тему оформления сайта"
           >
             <Palette size={14} />
             <span>
-              {WORLD_LIST.find((w) => w.id === world)?.label ?? 'Velvet Indigo'}
+              {WORLD_LIST.find((w) => w.id === world)?.label ??
+                'Бархатный Индиго'}
             </span>
           </button>
 
@@ -451,11 +454,13 @@ export function App() {
       </main>
 
       <footer className="app-footer font-mono">
-        <span>YOURDIARY // GENESIS ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
+        <span>
+          YOURDIARY // ИСКУССТВО И ТЕХНОЛОГИИ // СДЕЛАТЬ НЕВИДИМОЕ ВИДИМЫМ
+        </span>
         <span>
           {activeUser
-            ? `DIARY OWNER: @${activeUser.fullName.toUpperCase()}`
-            : '4:5 PERSONAL VISUAL SYSTEM'}
+            ? `ВЛАДЕЛЕЦ ДНЕВНИКА: @${activeUser.fullName.toUpperCase()}`
+            : 'ЕДИНАЯ ВИЗУАЛЬНАЯ СИСТЕМА 4:5'}
         </span>
       </footer>
 

@@ -159,7 +159,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.fillStyle = palette.ink;
       ctx.font = `600 ${Math.round(W * 0.022)}px "JetBrains Mono", monospace`;
       ctx.textBaseline = 'middle';
-      const dayCode = `DAY // ${String(entry.indexNumber).padStart(2, '0')}`;
+      const dayCode = `ДЕНЬ // ${String(entry.indexNumber).padStart(2, '0')}`;
       ctx.fillText(dayCode, pad, headY);
 
       const chipColors = entry.photos[0]?.dominantColors ?? [
@@ -718,7 +718,13 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       ctx.fillStyle = palette.ink;
       ctx.globalAlpha = 0.42;
       ctx.font = `500 ${Math.round(W * 0.016)}px "JetBrains Mono", monospace`;
-      const stampText = movement.toUpperCase();
+      const stampMap: Record<string, string> = {
+        impressionism: 'ИМПРЕССИОНИЗМ',
+        constructivism: 'КОНСТРУКТИВИЗМ',
+        'wabi-sabi': 'ВАБИ-САБИ',
+        'film-35mm': 'ПЛЁНКА 35ММ',
+      };
+      const stampText = stampMap[movement] ?? 'ИМПРЕССИОНИЗМ';
       const sw = ctx.measureText(stampText).width;
       ctx.fillText(stampText, W - pad - sw, musicY + Math.round(W * 0.052));
       ctx.globalAlpha = 1;

@@ -50,7 +50,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
     const avgBpm = Math.round(
       ordered.reduce((s, e) => s + e.music.bpm, 0) / count
     );
-    const rightMeta = `СР. РИТМ ${avgBpm} BPM · GENESIS ARTTECH 2026`;
+    const rightMeta = `СР. РИТМ ${avgBpm} BPM · ИСКУССТВО И ТЕХНОЛОГИИ 2026`;
     const rw = ctx.measureText(rightMeta).width;
     ctx.globalAlpha = 0.65;
     ctx.fillText(rightMeta, W - pad - rw, 44);
@@ -107,7 +107,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
       ctx.fillStyle = '#ffffff';
       ctx.font = '600 12px "JetBrains Mono", monospace';
       ctx.fillText(
-        `DAY // ${String(entry.indexNumber).padStart(2, '0')} · ${entry.music.bpm} BPM`,
+        `ДЕНЬ // ${String(entry.indexNumber).padStart(2, '0')} · ${entry.music.bpm} BPM`,
         x + 20,
         innerY + 34,
         colW - 40

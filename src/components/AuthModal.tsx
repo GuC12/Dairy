@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, ShieldCheck, UserPlus, X } from 'lucide-react';
+import { KeyRound, LogIn, ShieldCheck, UserPlus, X } from 'lucide-react';
 import {
   getSupabaseClient,
   syncUserProfileToSupabase,
@@ -25,15 +25,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess,
   onClose,
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(initialMode);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
 
     const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '_');
     if (cleanUser.length < 2) {
@@ -42,6 +45,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     if (password.length < 4) {
       setError('Пароль должен содержать минимум 4 символа.');
+      return;
+    }
+    if (mode === 'reset' && password !== confirmPassword) {
+      setError('Новый пароль и подтверждение пароля не совпадают.');
       return;
     }
 
@@ -54,6 +61,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       const sb = getSupabaseClient();
 
+      if (mode === 'reset') {
+        // Сброс пароля по логину
+        const localIdx = list.findIndex((u) => u.username === cleanUser);
+        let foundInCloud = false;
+
+        if (sb) {
+          try {
+            const { data: remoteUser } = await sb
+              .from('profiles')
+              .select('id')
+              .eq('id', userId)
+              .maybeSingle();
+            if (remoteUser) {
+              foundInCloud = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (localIdx === -1 && !foundInCloud) {
+          setError('Аккаунт с таким логином не найден. Проверьте логин или создайте новый.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (localIdx !== -1) {
+          list[localIdx].passwordHash = passHash;
+        } else {
+          list.push({
+            id: userId,
+            username: cleanUser,
+            passwordHash: passHash,
+          });
+        }
+        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(list));
+
+        const updatedProfile: AppUserProfile = {
+          id: userId,
+          email: passHash,
+          fullName: cleanUser,
+          provider: 'supabase-local',
+        };
+        await syncUserProfileToSupabase(updatedProfile);
+        setSuccessMsg('Пароль успешно обновлён! Открываем ваш дневник...');
+        onSuccess(updatedProfile);
+        return;
+      }
+
       if (mode === 'signup') {
         const existingLocal = list.find((u) => u.username === cleanUser);
         if (existingLocal) {
@@ -62,7 +118,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        // Проверяем также в Supabase profiles, если таблица доступна
         if (sb) {
           try {
             const { data: remoteUser } = await sb
@@ -90,7 +145,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         const profile: AppUserProfile = {
           id: userId,
-          email: passHash, // сохраняем хеш для облачной сверки в profiles
+          email: passHash,
           fullName: cleanUser,
           provider: 'supabase-local',
         };
@@ -101,7 +156,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const foundLocal = list.find((u) => u.username === cleanUser);
         if (foundLocal) {
           if (foundLocal.passwordHash !== passHash) {
-            setError('Неверный пароль.');
+            setError('Неверный пароль. Нажмите «Забыл пароль», если хотите задать новый.');
             setIsSubmitting(false);
             return;
           }
@@ -116,7 +171,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        // Если локально нет — проверяем в облаке Supabase
         if (sb) {
           try {
             const { data: remoteUser } = await sb
@@ -127,7 +181,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             if (remoteUser) {
               if (remoteUser.email && remoteUser.email !== passHash) {
-                setError('Неверный пароль.');
+                setError('Неверный пароль. Нажмите «Забыл пароль», чтобы сбросить его.');
                 setIsSubmitting(false);
                 return;
               }
@@ -168,7 +222,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         <div className="lightbox-head font-mono">
           <span className="tapestry-head-title">
-            <ShieldCheck size={16} /> YOURDIARY // ЛИЧНЫЙ АККАУНТ
+            <ShieldCheck size={16} /> ЛИЧНЫЙ АККАУНТ ДНЕВНИКА
           </span>
           <button type="button" className="btn-ghost" onClick={onClose}>
             <X size={16} />
@@ -181,6 +235,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             className={`mode-tab ${mode === 'signup' ? 'active' : ''}`}
             onClick={() => {
               setError(null);
+              setSuccessMsg(null);
               setMode('signup');
             }}
           >
@@ -191,10 +246,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             className={`mode-tab ${mode === 'signin' ? 'active' : ''}`}
             onClick={() => {
               setError(null);
+              setSuccessMsg(null);
               setMode('signin');
             }}
           >
             <LogIn size={14} /> Вход
+          </button>
+          <button
+            type="button"
+            className={`mode-tab ${mode === 'reset' ? 'active' : ''}`}
+            onClick={() => {
+              setError(null);
+              setSuccessMsg(null);
+              setMode('reset');
+            }}
+          >
+            <KeyRound size={14} /> Забыл пароль
           </button>
         </div>
 
@@ -202,7 +269,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <p className="auth-helper-text">
             {mode === 'signup'
               ? 'Придумайте логин и пароль (без почты и лишних данных). У каждого логина свой отдельный дневник.'
-              : 'Введите ваш логин и пароль, чтобы открыть свой личный дневник.'}
+              : mode === 'signin'
+                ? 'Введите ваш логин и пароль, чтобы открыть свой личный дневник.'
+                : 'Введите ваш логин и задайте новый пароль для доступа к вашему дневнику.'}
           </p>
 
           <div>
@@ -218,7 +287,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <div>
-            <label className="mini-label font-mono">Пароль</label>
+            <div className="auth-label-row">
+              <label className="mini-label font-mono">
+                {mode === 'reset' ? 'Новый пароль' : 'Пароль'}
+              </label>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  className="auth-forgot-link font-mono"
+                  onClick={() => {
+                    setError(null);
+                    setSuccessMsg(null);
+                    setMode('reset');
+                  }}
+                >
+                  Забыли пароль?
+                </button>
+              )}
+            </div>
             <input
               type="password"
               className="input-field"
@@ -228,7 +314,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             />
           </div>
 
+          {mode === 'reset' && (
+            <div>
+              <label className="mini-label font-mono">
+                Повторите новый пароль
+              </label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          )}
+
           {error && <div className="form-error">{error}</div>}
+          {successMsg && <div className="form-success">{successMsg}</div>}
 
           <button
             type="submit"
@@ -240,10 +342,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <UserPlus size={16} />
                 {isSubmitting ? 'Создаём дневник...' : 'Создать дневник'}
               </>
-            ) : (
+            ) : mode === 'signin' ? (
               <>
                 <LogIn size={16} />
                 {isSubmitting ? 'Открываем...' : 'Войти в дневник'}
+              </>
+            ) : (
+              <>
+                <KeyRound size={16} />
+                {isSubmitting ? 'Сохраняем пароль...' : 'Сохранить новый пароль'}
               </>
             )}
           </button>

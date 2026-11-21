@@ -571,7 +571,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       <div className="create-header">
         <div>
           <div className="font-mono section-kicker">
-            LIVE STUDIO // DAY {String(displayIndex).padStart(2, '0')}
+            МАСТЕРСКАЯ ДНЯ // ДЕНЬ {String(displayIndex).padStart(2, '0')}
           </div>
           <h1 className="font-serif create-title">
             {editingEntry ? 'Редактировать день' : 'Сохранить атмосферу дня'}
@@ -873,7 +873,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Frank Sinatra, Brian Eno..."
+                  placeholder="Имя исполнителя"
                   value={musicArtist}
                   onChange={(e) => setMusicArtist(e.target.value)}
                 />
@@ -883,7 +883,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Autumn in New York"
+                  placeholder="Название песни"
                   value={musicTitle}
                   onChange={(e) => setMusicTitle(e.target.value)}
                 />
@@ -900,7 +900,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               {musicMode === 'link' && (
                 <div>
                   <label className="mini-label font-mono">
-                    Ссылка (Spotify / YouTube / Apple)
+                    Ссылка на трек
                   </label>
                   <input
                     type="url"
@@ -954,7 +954,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         {/* Правая колонка: живой предпросмотр в реальном времени */}
         <aside className="studio-preview">
           <div className="preview-header font-mono">
-            <span>LIVE PREVIEW // 4:5</span>
+            <span>ЖИВОЙ ПРЕДПРОСМОТР // 4:5</span>
             <span className="preview-regime">
               {livePreviewEntry.analysis.movementTitle}
             </span>

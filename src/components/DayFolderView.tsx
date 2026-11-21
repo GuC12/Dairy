@@ -307,7 +307,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
         <div className="folder-path font-mono">
           <FolderOpen size={15} />
-          <span>/archive/{entry.analysis.folderName}</span>
+          <span>/архив/{entry.analysis.folderName}</span>
         </div>
 
         <div className="topbar-right-actions">
@@ -444,7 +444,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         <div className="folder-details">
           <div className="detail-card">
             <div className="detail-meta-row font-mono">
-              <span>DAY // {String(entry.indexNumber).padStart(2, '0')}</span>
+              <span>ДЕНЬ // {String(entry.indexNumber).padStart(2, '0')}</span>
               <span>{entry.dateLabel}</span>
               {entry.location && <span>{entry.location}</span>}
               {entry.weather && <span>{entry.weather}</span>}
@@ -770,7 +770,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
           <div className="immersive-topbar">
             <span className="font-mono immersive-badge">
-              DAY // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
+              ДЕНЬ // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
               {entry.analysis.folderName}
             </span>
             <div className="immersive-actions">
