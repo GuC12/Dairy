@@ -110,28 +110,31 @@ export function App() {
     let cancelled = false;
 
     const syncWithCloud = async () => {
-      const cloudEntries = await fetchCloudDays(activeUser.id);
+      const [cloudEntries, localEntries] = await Promise.all([
+        fetchCloudDays(activeUser.id),
+        loadAllDays(activeUser.id),
+      ]);
       if (cancelled || !cloudEntries) return;
 
-      if (cloudEntries.length > 0) {
-        const mergedMap = new Map<string, DiaryEntry>();
-        for (const ce of cloudEntries) {
-          mergedMap.set(ce.id, ce);
-          await saveDay(ce, activeUser.id);
-        }
-        setEntries((prev) => {
-          for (const localItem of prev) {
-            if (!mergedMap.has(localItem.id)) {
-              mergedMap.set(localItem.id, localItem);
-              upsertCloudDay(activeUser.id, localItem).catch(() => {});
-            }
-          }
-          return Array.from(mergedMap.values()).sort(
-            (a, b) => b.indexNumber - a.indexNumber
-          );
-        });
+      const mergedMap = new Map<string, DiaryEntry>();
+      for (const ce of cloudEntries) {
+        mergedMap.set(ce.id, ce);
+        await saveDay(ce, activeUser.id);
       }
-      if (!cancelled) setCloudSynced(true);
+      for (const localItem of localEntries) {
+        if (!mergedMap.has(localItem.id)) {
+          mergedMap.set(localItem.id, localItem);
+          upsertCloudDay(activeUser.id, localItem).catch(() => {});
+        }
+      }
+      if (!cancelled) {
+        setEntries(
+          Array.from(mergedMap.values()).sort(
+            (a, b) => b.indexNumber - a.indexNumber
+          )
+        );
+        setCloudSynced(true);
+      }
     };
 
     syncWithCloud();
