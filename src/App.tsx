@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClerkProvider } from '@clerk/clerk-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BookOpen,
   Cloud,
   FolderKanban,
+  LogIn,
   LogOut,
   Palette,
   Plus,
   Sparkles,
-  UserCheck,
+  User,
   UserPlus,
 } from 'lucide-react';
 import type { DiaryEntry } from './types/diary';
@@ -29,7 +29,7 @@ import {
   type WorldThemeId,
 } from './components/BackdropCanvas';
 import { AuthModal } from './components/AuthModal';
-import { ClerkBridge } from './components/ClerkBridge';
+import { ProfileModal } from './components/ProfileModal';
 import { WelcomeLanding } from './components/WelcomeLanding';
 import './App.css';
 
@@ -53,9 +53,18 @@ export function App() {
   const [autoReel, setAutoReel] = useState(false);
   const [world, setWorld] = useState<WorldThemeId>('indigo');
 
-  const [authCfg, setAuthCfg] = useState(() => getAuthConfig());
+  const [authCfg] = useState(() => getAuthConfig());
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [activeUser, setActiveUser] = useState<AppUserProfile | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signup');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [activeUser, setActiveUser] = useState<AppUserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_USER_KEY);
+      return saved ? (JSON.parse(saved) as AppUserProfile) : null;
+    } catch {
+      return null;
+    }
+  });
   const [cloudSynced, setCloudSynced] = useState(false);
 
   const currentUserId = activeUser?.id ?? null;
@@ -179,43 +188,7 @@ export function App() {
 
   const isDarkWorld = world === 'indigo';
 
-  // Динамическое оформление Clerk под текущую тему сайта (Velvet Indigo или Turrell Dawn)
-  const clerkAppearance = useMemo(
-    () => ({
-      variables: isDarkWorld
-        ? {
-            colorPrimary: '#f59e0b',
-            colorBackground: '#1b173d',
-            colorText: '#fdfcff',
-            colorTextSecondary: '#c9c6e0',
-            colorInputBackground: '#120f2c',
-            colorInputText: '#fdfcff',
-            colorNeutral: '#fdfcff',
-            borderRadius: '14px',
-            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-          }
-        : {
-            colorPrimary: '#e11d48',
-            colorBackground: '#fff9f3',
-            colorText: '#17161c',
-            colorTextSecondary: '#484654',
-            colorInputBackground: '#ffffff',
-            colorInputText: '#17161c',
-            colorNeutral: '#17161c',
-            borderRadius: '14px',
-            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-          },
-      elements: {
-        card: isDarkWorld
-          ? 'yourdiary-clerk-card-dark'
-          : 'yourdiary-clerk-card-light',
-        headerTitle: 'font-serif',
-      },
-    }),
-    [isDarkWorld]
-  );
-
-  const content = (
+  return (
     <div
       className={`app-shell ${
         isDarkWorld ? 'theme-prism' : 'theme-editorial'
@@ -299,7 +272,7 @@ export function App() {
               const next = WORLD_LIST[(idx + 1) % WORLD_LIST.length];
               setWorld(next.id);
             }}
-            title="Переключить тему сайта и окна Clerk"
+            title="Переключить тему сайта (Velvet Indigo / Turrell Dawn)"
           >
             <Palette size={14} />
             <span>
@@ -307,17 +280,18 @@ export function App() {
             </span>
           </button>
 
-          {authCfg.hasClerk ? (
-            <ClerkBridge
-              hasSupabase={authCfg.hasSupabase}
-              onUserChange={handleUserAuthenticated}
-            />
-          ) : activeUser ? (
+          {activeUser ? (
             <div className="user-pill-box">
-              <span className="user-badge font-mono">
-                <UserCheck size={13} />
-                {activeUser.fullName}
-              </span>
+              <button
+                type="button"
+                className="btn-ghost btn-auth-compact"
+                onClick={() => setShowProfileModal(true)}
+                title="Открыть профиль и статистику дневника"
+              >
+                <User size={14} />
+                <span>@{activeUser.fullName}</span>
+              </button>
+
               {authCfg.hasSupabase && (
                 <span
                   className="cloud-sync-dot font-mono"
@@ -330,24 +304,42 @@ export function App() {
                   <Cloud size={12} />
                 </span>
               )}
+
               <button
                 type="button"
-                className="btn-ghost btn-icon-only"
+                className="btn-ghost btn-auth-compact"
                 onClick={() => handleUserAuthenticated(null)}
                 title="Выйти из аккаунта"
               >
                 <LogOut size={14} />
+                <span>Выйти</span>
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              className="btn-primary btn-auth-compact"
-              onClick={() => setShowAuthModal(true)}
-            >
-              <UserPlus size={14} />
-              Регистрация / Вход
-            </button>
+            <div className="clerk-auth-buttons">
+              <button
+                type="button"
+                className="btn-ghost btn-auth-compact"
+                onClick={() => {
+                  setAuthModalMode('signin');
+                  setShowAuthModal(true);
+                }}
+              >
+                <LogIn size={14} />
+                Вход
+              </button>
+              <button
+                type="button"
+                className="btn-primary btn-auth-compact"
+                onClick={() => {
+                  setAuthModalMode('signup');
+                  setShowAuthModal(true);
+                }}
+              >
+                <UserPlus size={14} />
+                Регистрация
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -356,7 +348,13 @@ export function App() {
         {view === 'system' ? (
           <VisualSystemPage sampleEntry={entries[0]} />
         ) : !activeUser ? (
-          <WelcomeLanding onOpenSystem={() => setView('system')} />
+          <WelcomeLanding
+            onOpenSystem={() => setView('system')}
+            onOpenAuth={(mode) => {
+              setAuthModalMode(mode);
+              setShowAuthModal(true);
+            }}
+          />
         ) : isLoading ? (
           <div className="loading-state font-mono">
             Загрузка вашего личного дневника...
@@ -456,39 +454,36 @@ export function App() {
         <span>YOURDIARY // GENESIS ARTTECH // MAKE THE INVISIBLE VISIBLE_</span>
         <span>
           {activeUser
-            ? `DIARY OWNER: ${activeUser.fullName.toUpperCase()}`
+            ? `DIARY OWNER: @${activeUser.fullName.toUpperCase()}`
             : '4:5 PERSONAL VISUAL SYSTEM'}
         </span>
       </footer>
 
       {showAuthModal && (
         <AuthModal
+          initialMode={authModalMode}
           onSuccess={(user) => {
             handleUserAuthenticated(user);
-            setShowAuthModal(false);
-          }}
-          onConfigSaved={() => {
-            setAuthCfg(getAuthConfig());
             setShowAuthModal(false);
           }}
           onClose={() => setShowAuthModal(false)}
         />
       )}
+
+      {showProfileModal && activeUser && (
+        <ProfileModal
+          user={activeUser}
+          entries={entries}
+          cloudSynced={cloudSynced}
+          onLogout={() => {
+            setShowProfileModal(false);
+            handleUserAuthenticated(null);
+          }}
+          onClose={() => setShowProfileModal(false)}
+        />
+      )}
     </div>
   );
-
-  if (authCfg.hasClerk) {
-    return (
-      <ClerkProvider
-        publishableKey={authCfg.clerkKey}
-        appearance={clerkAppearance}
-      >
-        {content}
-      </ClerkProvider>
-    );
-  }
-
-  return content;
 }
 
 export default App;

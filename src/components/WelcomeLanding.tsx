@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { SignInButton, SignUpButton } from '@clerk/clerk-react';
 import {
   BookOpen,
   Disc3,
@@ -14,6 +13,7 @@ import { analyzeLocally } from '../engine/atmosphereEngine';
 import { MemoryCanvas } from './MemoryCanvas';
 
 interface WelcomeLandingProps {
+  onOpenAuth: (mode: 'signin' | 'signup') => void;
   onOpenSystem: () => void;
 }
 
@@ -80,6 +80,7 @@ const PREVIEW_MODES: Array<{
 ];
 
 export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
+  onOpenAuth,
   onOpenSystem,
 }) => {
   const [modeIdx, setModeIdx] = useState(0);
@@ -190,19 +191,23 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({
           </div>
 
           <div className="welcome-cta-cluster">
-            <SignUpButton mode="modal">
-              <button type="button" className="btn-primary btn-large">
-                <UserPlus size={18} />
-                Создать свой дневник
-              </button>
-            </SignUpButton>
+            <button
+              type="button"
+              className="btn-primary btn-large"
+              onClick={() => onOpenAuth('signup')}
+            >
+              <UserPlus size={18} />
+              Создать свой дневник
+            </button>
 
-            <SignInButton mode="modal">
-              <button type="button" className="btn-secondary btn-large">
-                <LogIn size={18} />
-                Войти в аккаунт
-              </button>
-            </SignInButton>
+            <button
+              type="button"
+              className="btn-secondary btn-large"
+              onClick={() => onOpenAuth('signin')}
+            >
+              <LogIn size={18} />
+              Войти в аккаунт
+            </button>
 
             <button
               type="button"

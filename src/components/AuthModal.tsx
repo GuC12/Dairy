@@ -1,181 +1,163 @@
 import React, { useState } from 'react';
+import { LogIn, ShieldCheck, UserPlus, X } from 'lucide-react';
 import {
-  CheckCircle2,
-  Cloud,
-  Database,
-  KeyRound,
-  LogIn,
-  ShieldCheck,
-  UserPlus,
-  X,
-} from 'lucide-react';
-import {
-  getAuthConfig,
   getSupabaseClient,
-  saveRuntimeAuthConfig,
   syncUserProfileToSupabase,
   type AppUserProfile,
 } from '../lib/supabaseClient';
 
 interface AuthModalProps {
+  initialMode?: 'signin' | 'signup';
   onSuccess: (user: AppUserProfile) => void;
-  onConfigSaved: () => void;
   onClose: () => void;
 }
 
-const LOCAL_USERS_KEY = 'atmos_registered_users';
+const LOCAL_USERS_KEY = 'yourdiary_username_accounts_v1';
 
-interface StoredLocalAccount {
+interface StoredUsernameAccount {
   id: string;
-  email: string;
-  fullName: string;
+  username: string;
   passwordHash: string;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
+  initialMode = 'signup',
   onSuccess,
-  onConfigSaved,
   onClose,
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'keys'>('signup');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const initialCfg = getAuthConfig();
-  const [clerkKey, setClerkKey] = useState(initialCfg.clerkKey);
-  const [supabaseUrl, setSupabaseUrl] = useState(initialCfg.supabaseUrl);
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState(
-    initialCfg.supabaseAnonKey
-  );
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setError('Введите корректный Email.');
+    const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '_');
+    if (cleanUser.length < 2) {
+      setError('Введите логин (минимум 2 символа).');
       return;
     }
     if (password.length < 4) {
       setError('Пароль должен содержать минимум 4 символа.');
       return;
     }
-    if (mode === 'signup' && !fullName.trim()) {
-      setError('Укажите ваше имя для дневника.');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
+      const passHash = btoa(encodeURIComponent(password));
+      const userId = `user_${cleanUser}`;
+      const raw = localStorage.getItem(LOCAL_USERS_KEY);
+      const list: StoredUsernameAccount[] = raw ? JSON.parse(raw) : [];
+
       const sb = getSupabaseClient();
 
-      // Если подключён Supabase — пробуем также стандартную регистрацию/вход Supabase Auth + запись в profiles
-      if (sb) {
-        if (mode === 'signup') {
-          const { data } = await sb.auth.signUp({
-            email: cleanEmail,
-            password,
-            options: { data: { full_name: fullName.trim() } },
-          });
-          if (data?.user) {
-            const profile: AppUserProfile = {
-              id: data.user.id,
-              email: cleanEmail,
-              fullName: fullName.trim(),
-              provider: 'supabase-local',
-            };
-            await syncUserProfileToSupabase(profile);
-            onSuccess(profile);
-            return;
-          }
-        } else {
-          const { data } = await sb.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-          if (data?.user) {
-            const metaName =
-              (data.user.user_metadata?.full_name as string | undefined) ||
-              cleanEmail.split('@')[0];
-            const profile: AppUserProfile = {
-              id: data.user.id,
-              email: cleanEmail,
-              fullName: metaName,
-              provider: 'supabase-local',
-            };
-            await syncUserProfileToSupabase(profile);
-            onSuccess(profile);
-            return;
-          }
-        }
-      }
-
-      // Локальный реестр аккаунтов + синхронизация с таблицей profiles в Supabase
-      const raw = localStorage.getItem(LOCAL_USERS_KEY);
-      const list: StoredLocalAccount[] = raw ? JSON.parse(raw) : [];
-
       if (mode === 'signup') {
-        const existing = list.find((u) => u.email === cleanEmail);
-        if (existing) {
-          setError('Пользователь с таким Email уже зарегистрирован. Войдите.');
+        const existingLocal = list.find((u) => u.username === cleanUser);
+        if (existingLocal) {
+          setError('Этот логин уже занят. Выберите другой или нажмите «Вход».');
           setIsSubmitting(false);
           return;
         }
-        const newAcc: StoredLocalAccount = {
-          id: `user_${Date.now().toString(36)}`,
-          email: cleanEmail,
-          fullName: fullName.trim(),
-          passwordHash: btoa(encodeURIComponent(password)),
+
+        // Проверяем также в Supabase profiles, если таблица доступна
+        if (sb) {
+          try {
+            const { data: remoteUser } = await sb
+              .from('profiles')
+              .select('id, email')
+              .eq('id', userId)
+              .maybeSingle();
+            if (remoteUser) {
+              setError('Этот логин уже зарегистрирован в облаке. Войдите.');
+              setIsSubmitting(false);
+              return;
+            }
+          } catch {
+            // ignore if table not created yet
+          }
+        }
+
+        const newAcc: StoredUsernameAccount = {
+          id: userId,
+          username: cleanUser,
+          passwordHash: passHash,
         };
         list.push(newAcc);
         localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(list));
 
         const profile: AppUserProfile = {
-          id: newAcc.id,
-          email: newAcc.email,
-          fullName: newAcc.fullName,
+          id: userId,
+          email: passHash, // сохраняем хеш для облачной сверки в profiles
+          fullName: cleanUser,
           provider: 'supabase-local',
         };
         await syncUserProfileToSupabase(profile);
         onSuccess(profile);
       } else {
-        const found = list.find((u) => u.email === cleanEmail);
-        if (!found) {
-          setError('Аккаунт не найден. Зарегистрируйтесь.');
-          setIsSubmitting(false);
+        // Вход по логину и паролю
+        const foundLocal = list.find((u) => u.username === cleanUser);
+        if (foundLocal) {
+          if (foundLocal.passwordHash !== passHash) {
+            setError('Неверный пароль.');
+            setIsSubmitting(false);
+            return;
+          }
+          const profile: AppUserProfile = {
+            id: foundLocal.id,
+            email: passHash,
+            fullName: foundLocal.username,
+            provider: 'supabase-local',
+          };
+          await syncUserProfileToSupabase(profile);
+          onSuccess(profile);
           return;
         }
-        if (found.passwordHash !== btoa(encodeURIComponent(password))) {
-          setError('Неверный пароль.');
-          setIsSubmitting(false);
-          return;
+
+        // Если локально нет — проверяем в облаке Supabase
+        if (sb) {
+          try {
+            const { data: remoteUser } = await sb
+              .from('profiles')
+              .select('id, email, full_name')
+              .eq('id', userId)
+              .maybeSingle();
+
+            if (remoteUser) {
+              if (remoteUser.email && remoteUser.email !== passHash) {
+                setError('Неверный пароль.');
+                setIsSubmitting(false);
+                return;
+              }
+              const syncedAcc: StoredUsernameAccount = {
+                id: userId,
+                username: cleanUser,
+                passwordHash: passHash,
+              };
+              list.push(syncedAcc);
+              localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(list));
+
+              const profile: AppUserProfile = {
+                id: userId,
+                email: passHash,
+                fullName: cleanUser,
+                provider: 'supabase-local',
+              };
+              onSuccess(profile);
+              return;
+            }
+          } catch {
+            // ignore
+          }
         }
-        const profile: AppUserProfile = {
-          id: found.id,
-          email: found.email,
-          fullName: found.fullName,
-          provider: 'supabase-local',
-        };
-        await syncUserProfileToSupabase(profile);
-        onSuccess(profile);
+
+        setError('Аккаунт с таким логином не найден. Зарегистрируйтесь.');
       }
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleSaveKeys = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveRuntimeAuthConfig({
-      clerkKey,
-      supabaseUrl,
-      supabaseAnonKey,
-    });
-    onConfigSaved();
   };
 
   return (
@@ -186,7 +168,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         <div className="lightbox-head font-mono">
           <span className="tapestry-head-title">
-            <ShieldCheck size={16} /> ATMOS ID // CLERK & SUPABASE AUTH
+            <ShieldCheck size={16} /> YOURDIARY // ЛИЧНЫЙ АККАУНТ
           </span>
           <button type="button" className="btn-ghost" onClick={onClose}>
             <X size={16} />
@@ -214,146 +196,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             <LogIn size={14} /> Вход
           </button>
-          <button
-            type="button"
-            className={`mode-tab ${mode === 'keys' ? 'active' : ''}`}
-            onClick={() => {
-              setError(null);
-              setMode('keys');
-            }}
-          >
-            <KeyRound size={14} /> Ключи Clerk / Supabase
-          </button>
         </div>
 
-        {mode === 'keys' ? (
-          <form className="auth-form" onSubmit={handleSaveKeys}>
-            <p className="auth-helper-text">
-              Вставьте ключи вашего проекта <strong>Clerk</strong> и{' '}
-              <strong>Supabase</strong> (или задайте их в файле{' '}
-              <code>.env</code>). SQL-схема таблиц находится в файле{' '}
-              <code>SUPABASE_SETUP.sql</code>.
-            </p>
+        <form className="auth-form" onSubmit={handleAuthSubmit}>
+          <p className="auth-helper-text">
+            {mode === 'signup'
+              ? 'Придумайте логин и пароль (без почты и лишних данных). У каждого логина свой отдельный дневник.'
+              : 'Введите ваш логин и пароль, чтобы открыть свой личный дневник.'}
+          </p>
 
-            <div>
-              <label className="mini-label font-mono">
-                VITE_CLERK_PUBLISHABLE_KEY (pk_test_...)
-              </label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="pk_test_..."
-                value={clerkKey}
-                onChange={(e) => setClerkKey(e.target.value)}
-              />
-            </div>
+          <div>
+            <label className="mini-label font-mono">Логин (никнейм)</label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="например: guc12"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
 
-            <div>
-              <label className="mini-label font-mono">
-                VITE_SUPABASE_URL (https://xxx.supabase.co)
-              </label>
-              <input
-                type="url"
-                className="input-field"
-                placeholder="https://your-project.supabase.co"
-                value={supabaseUrl}
-                onChange={(e) => setSupabaseUrl(e.target.value)}
-              />
-            </div>
+          <div>
+            <label className="mini-label font-mono">Пароль</label>
+            <input
+              type="password"
+              className="input-field"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
 
-            <div>
-              <label className="mini-label font-mono">
-                VITE_SUPABASE_ANON_KEY
-              </label>
-              <input
-                type="password"
-                className="input-field"
-                placeholder="eyJhbGciOi..."
-                value={supabaseAnonKey}
-                onChange={(e) => setSupabaseAnonKey(e.target.value)}
-              />
-            </div>
+          {error && <div className="form-error">{error}</div>}
 
-            <div className="auth-status-row font-mono">
-              <span>
-                <CheckCircle2 size={13} /> Clerk:{' '}
-                {clerkKey.startsWith('pk_') ? 'Подключён' : 'Встроенный режим'}
-              </span>
-              <span>
-                <Database size={13} /> Supabase:{' '}
-                {supabaseUrl.startsWith('http') ? 'Подключён' : 'Локальный БД'}
-              </span>
-            </div>
-
-            <button type="submit" className="btn-primary btn-large">
-              <Cloud size={16} />
-              Сохранить и перезагрузить провайдеры
-            </button>
-          </form>
-        ) : (
-          <form className="auth-form" onSubmit={handleAuthSubmit}>
-            <p className="auth-helper-text">
-              {mode === 'signup'
-                ? 'Создайте личный аккаунт дневника для сохранения и синхронизации ваших папок дней в облаке Supabase.'
-                : 'Войдите в свой аккаунт дневника, чтобы синхронизировать записи.'}
-            </p>
-
-            {mode === 'signup' && (
-              <div>
-                <label className="mini-label font-mono">Ваше имя</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Алихан"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
+          <button
+            type="submit"
+            className="btn-primary btn-large"
+            disabled={isSubmitting}
+          >
+            {mode === 'signup' ? (
+              <>
+                <UserPlus size={16} />
+                {isSubmitting ? 'Создаём дневник...' : 'Создать дневник'}
+              </>
+            ) : (
+              <>
+                <LogIn size={16} />
+                {isSubmitting ? 'Открываем...' : 'Войти в дневник'}
+              </>
             )}
-
-            <div>
-              <label className="mini-label font-mono">Email</label>
-              <input
-                type="email"
-                className="input-field"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mini-label font-mono">Пароль</label>
-              <input
-                type="password"
-                className="input-field"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            {error && <div className="form-error">{error}</div>}
-
-            <button
-              type="submit"
-              className="btn-primary btn-large"
-              disabled={isSubmitting}
-            >
-              {mode === 'signup' ? (
-                <>
-                  <UserPlus size={16} />
-                  {isSubmitting ? 'Создаём аккаунт...' : 'Зарегистрироваться'}
-                </>
-              ) : (
-                <>
-                  <LogIn size={16} />
-                  {isSubmitting ? 'Входим...' : 'Войти в дневник'}
-                </>
-              )}
-            </button>
-          </form>
-        )}
+          </button>
+        </form>
       </div>
     </div>
   );
