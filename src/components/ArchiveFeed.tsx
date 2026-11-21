@@ -30,23 +30,24 @@ interface ArchiveFeedProps {
   onHoverEntry?: (entry: DiaryEntry | null) => void;
 }
 
-const FILTERS: Array<{
+const FILTERS_DATA: Array<{
   id: 'all' | ArtMovementId;
-  label: string;
+  ru: string;
+  en: string;
   dotColor: string;
 }> = [
-  { id: 'all', label: 'Все экспонаты', dotColor: '#f472b6' },
-  { id: 'impressionism', label: 'Моне · Свет', dotColor: '#f59e0b' },
-  { id: 'constructivism', label: 'Кандинский · Ритм', dotColor: '#38bdf8' },
-  { id: 'wabi-sabi', label: 'Ваби-саби · Тишина', dotColor: '#34d399' },
-  { id: 'film-35mm', label: 'Плёнка 35mm · Хроника', dotColor: '#c084fc' },
+  { id: 'all', ru: 'Все экспонаты', en: 'All Exhibits', dotColor: '#f472b6' },
+  { id: 'impressionism', ru: 'Моне · Свет', en: 'Monet · Light', dotColor: '#f59e0b' },
+  { id: 'constructivism', ru: 'Кандинский · Ритм', en: 'Kandinsky · Rhythm', dotColor: '#38bdf8' },
+  { id: 'wabi-sabi', ru: 'Ваби-саби · Тишина', en: 'Wabi-Sabi · Silence', dotColor: '#34d399' },
+  { id: 'film-35mm', ru: 'Плёнка 35mm · Хроника', en: '35mm Film · Chronicle', dotColor: '#c084fc' },
 ];
 
-const MOVEMENT_SHORT: Record<ArtMovementId, { tag: string; color: string }> = {
-  impressionism: { tag: 'МОНЕ // СВЕТ', color: '#f59e0b' },
-  constructivism: { tag: 'КАНДИНСКИЙ // РИТМ', color: '#38bdf8' },
-  'wabi-sabi': { tag: 'ВАБИ-САБИ // ВОЗДУХ', color: '#34d399' },
-  'film-35mm': { tag: '35MM // АНАЛОГ', color: '#c084fc' },
+const MOVEMENT_SHORT: Record<ArtMovementId, { tagRu: string; tagEn: string; color: string }> = {
+  impressionism: { tagRu: 'МОНЕ // СВЕТ', tagEn: 'MONET // LIGHT', color: '#f59e0b' },
+  constructivism: { tagRu: 'КАНДИНСКИЙ // РИТМ', tagEn: 'KANDINSKY // RHYTHM', color: '#38bdf8' },
+  'wabi-sabi': { tagRu: 'ВАБИ-САБИ // ВОЗДУХ', tagEn: 'WABI-SABI // AIR', color: '#34d399' },
+  'film-35mm': { tagRu: '35MM // АНАЛОГ', tagEn: '35MM // ANALOG', color: '#c084fc' },
 };
 
 export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
@@ -178,12 +179,15 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                 <div className="dna-head">
                   <Sparkles size={13} />
                   <span>
-                    ХРОМАТИЧЕСКИЙ СПЕКТР ДНЕВНИКА ({entries.length} ДНЕЙ)
+                    {t(
+                      `ХРОМАТИЧЕСКИЙ СПЕКТР ДНЕВНИКА (${entries.length} ДНЕЙ)`,
+                      `DIARY CHROMATIC SPECTRUM (${entries.length} DAYS)`
+                    )}
                   </span>
                 </div>
                 <span className="dna-stats">
-                  {entries.reduce((s, e) => s + e.photos.length, 0)} фото · Ср.
-                  ритм{' '}
+                  {entries.reduce((s, e) => s + e.photos.length, 0)}{' '}
+                  {t('фото', 'photos')} · {t('Ср. ритм', 'Avg rhythm')}{' '}
                   {Math.round(
                     entries.reduce((s, e) => s + e.music.bpm, 0) /
                       entries.length
@@ -332,14 +336,14 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
           <Search size={16} />
           <input
             type="text"
-            placeholder="Поиск по папкам, тексту или песне..."
+            placeholder={t('Поиск по папкам, тексту или песне...', 'Search folders, story or song...')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
 
         <div className="filter-pills">
-          {FILTERS.map((f) => (
+          {FILTERS_DATA.map((f) => (
             <button
               key={f.id}
               className={`filter-pill ${filter === f.id ? 'active' : ''}`}
@@ -349,7 +353,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                 className="filter-dot"
                 style={{ backgroundColor: f.dotColor }}
               />
-              {f.label}
+              {t(f.ru, f.en)}
             </button>
           ))}
         </div>
@@ -359,19 +363,19 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
             type="button"
             className={`layout-btn ${layoutMode === 'posters' ? 'active' : ''}`}
             onClick={() => setLayoutMode('posters')}
-            title="Витрина постеров 4:5"
+            title={t('Витрина постеров 4:5', 'Showcase of 4:5 posters')}
           >
             <LayoutGrid size={14} />
-            Постеры
+            {t('Постеры', 'Posters')}
           </button>
           <button
             type="button"
             className={`layout-btn ${layoutMode === 'editorial' ? 'active' : ''}`}
             onClick={() => setLayoutMode('editorial')}
-            title="Журнальные развороты с цитатами и палитрой"
+            title={t('Журнальные развороты с цитатами и палитрой', 'Editorial spreads with quotes and palette')}
           >
             <BookOpen size={14} />
-            Развороты
+            {t('Развороты', 'Spreads')}
           </button>
         </div>
       </div>
@@ -461,10 +465,10 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                         background: `${mv.color}16`,
                       }}
                     >
-                      {mv.tag}
+                      {t(mv.tagRu, mv.tagEn)}
                     </span>
 
-                    <div className="card-swatches" title="Палитра фотографий дня">
+                    <div className="card-swatches" title={t('Палитра фотографий дня', 'Day photo palette')}>
                       {swatches.slice(0, 4).map((hex, sIdx) => (
                         <span
                           key={sIdx}
@@ -562,8 +566,8 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                       onClick={(e) => toggleInlinePlay(e, entry)}
                       title={
                         isCardPlaying
-                          ? 'Остановить музыку'
-                          : 'Послушать атмосферу прямо в ленте'
+                          ? t('Остановить музыку', 'Stop music')
+                          : t('Послушать атмосферу прямо в ленте', 'Listen to vibe inline')
                       }
                     >
                       <Disc3

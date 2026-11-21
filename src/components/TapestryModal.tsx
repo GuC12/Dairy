@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Download, Sparkles, X } from 'lucide-react';
 import type { DiaryEntry } from '../types/diary';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface TapestryModalProps {
   entries: DiaryEntry[];
@@ -11,6 +12,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
   entries,
   onClose,
 }) => {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -42,7 +44,10 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
     ctx.fillStyle = '#18181b';
     ctx.font = '600 15px "JetBrains Mono", monospace';
     ctx.fillText(
-      `YourDiary // ГОБЕЛЕН ПЕРИОДА (${count} ДНЕЙ В ЕДИНОМ СПЕКТРЕ)`,
+      t(
+        `YourDiary // ГОБЕЛЕН ПЕРИОДА (${count} ДНЕЙ В ЕДИНОМ СПЕКТРЕ)`,
+        `YourDiary // PERIOD TAPESTRY (${count} DAYS IN A UNIFIED SPECTRUM)`
+      ),
       pad,
       44
     );
@@ -50,7 +55,10 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
     const avgBpm = Math.round(
       ordered.reduce((s, e) => s + e.music.bpm, 0) / count
     );
-    const rightMeta = `СР. РИТМ ${avgBpm} BPM · ИСКУССТВО И ТЕХНОЛОГИИ 2026`;
+    const rightMeta = t(
+      `СР. РИТМ ${avgBpm} BPM · ИСКУССТВО И ТЕХНОЛОГИИ 2026`,
+      `AVG RHYTHM ${avgBpm} BPM · ART & TECH 2026`
+    );
     const rw = ctx.measureText(rightMeta).width;
     ctx.globalAlpha = 0.65;
     ctx.fillText(rightMeta, W - pad - rw, 44);
@@ -177,7 +185,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
       footY + 26
     );
     ctx.globalAlpha = 1;
-  }, [entries]);
+  }, [entries, t]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -197,7 +205,11 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
       >
         <div className="lightbox-head font-mono">
           <span className="tapestry-head-title">
-            <Sparkles size={15} /> ГОБЕЛЕН ВСЕХ ДНЕЙ АРХИВА // СВОДНОЕ ПОЛОТНО
+            <Sparkles size={15} />{' '}
+            {t(
+              'ГОБЕЛЕН ВСЕХ ДНЕЙ АРХИВА // СВОДНОЕ ПОЛОТНО',
+              'ALL ARCHIVE DAYS TAPESTRY // MASTER SHEET'
+            )}
           </span>
           <div className="photo-head-actions">
             <button
@@ -206,7 +218,7 @@ export const TapestryModal: React.FC<TapestryModalProps> = ({
               onClick={handleDownload}
             >
               <Download size={14} />
-              Скачать постер (PNG)
+              {t('Скачать постер (PNG)', 'Download poster (PNG)')}
             </button>
             <button type="button" className="btn-ghost" onClick={onClose}>
               <X size={16} />

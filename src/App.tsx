@@ -74,6 +74,14 @@ export function App() {
   const [cloudSynced, setCloudSynced] = useState(false);
   const clerkSignOutRef = useRef<(() => Promise<void>) | null>(null);
 
+  const geminiApiKey = useMemo(() => {
+    return (
+      (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ||
+      localStorage.getItem('atmos_gemini_api_key')?.trim() ||
+      undefined
+    );
+  }, []);
+
   const currentUserId = activeUser?.id ?? null;
 
   // Загружаем только личные дневники вошедшего пользователя
@@ -452,6 +460,7 @@ export function App() {
         ) : view === 'create' ? (
           <CreateDayView
             nextIndex={nextIndex}
+            geminiApiKey={geminiApiKey}
             editingEntry={editingEntry}
             onCreated={handleCreated}
             onCancel={() => {

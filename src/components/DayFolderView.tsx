@@ -25,6 +25,7 @@ import type { DiaryEntry, PhotoItem } from '../types/diary';
 import { DayAudioController } from '../engine/audioAnalyzer';
 import { MemoryCanvas } from './MemoryCanvas';
 import { AtmosphereCompass } from './AtmosphereCompass';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface DayFolderViewProps {
   entry: DiaryEntry;
@@ -53,6 +54,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { t } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(
     initialImmersive || initialAutoReel
   );
@@ -278,7 +280,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         <div className="folder-nav-left">
           <button className="btn-ghost" onClick={onBack}>
             <ArrowLeft size={16} />
-            Архив
+            {t('Архив', 'Archive')}
           </button>
 
           <div className="day-pager">
@@ -287,19 +289,19 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
               className="btn-ghost pager-btn"
               disabled={!hasPrev}
               onClick={onPrev}
-              title="Предыдущий день (стрелка ←)"
+              title={t('Предыдущий день (стрелка ←)', 'Previous day (left arrow)')}
             >
               <ChevronLeft size={16} />
-              Пред.
+              {t('Пред.', 'Prev')}
             </button>
             <button
               type="button"
               className="btn-ghost pager-btn"
               disabled={!hasNext}
               onClick={onNext}
-              title="Следующий день (стрелка →)"
+              title={t('Следующий день (стрелка →)', 'Next day (right arrow)')}
             >
-              След.
+              {t('След.', 'Next')}
               <ChevronRight size={16} />
             </button>
           </div>
@@ -307,26 +309,29 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
         <div className="folder-path font-mono">
           <FolderOpen size={15} />
-          <span>/архив/{entry.analysis.folderName}</span>
+          <span>{t('/архив/', '/archive/')}{entry.analysis.folderName}</span>
         </div>
 
         <div className="topbar-right-actions">
           <button
             className="btn-secondary"
             onClick={() => onEdit(entry)}
-            title="Редактировать день"
+            title={t('Редактировать день', 'Edit day')}
           >
             <Pencil size={14} />
-            Редактировать
+            {t('Редактировать', 'Edit')}
           </button>
 
           <button
             className="btn-secondary"
             onClick={handleExportFolder}
-            title="Скачать папку дня (.atmos.json), чтобы отправить другу"
+            title={t(
+              'Скачать папку дня (.atmos.json), чтобы отправить другу',
+              'Download day folder (.atmos.json) to share with friends'
+            )}
           >
             <Share2 size={14} />
-            Экспорт папки
+            {t('Экспорт папки', 'Export Folder')}
           </button>
 
           <button
@@ -337,16 +342,16 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             }}
           >
             <Maximize2 size={15} />
-            Погружение
+            {t('Погружение', 'Immersion')}
           </button>
 
           <button
             className="btn-ghost btn-danger-subtle"
             onClick={() => onDelete(entry.id)}
-            title="Удалить папку дня"
+            title={t('Удалить папку дня', 'Delete day folder')}
           >
             <Trash2 size={15} />
-            Удалить
+            {t('Удалить', 'Delete')}
           </button>
         </div>
       </div>
@@ -395,19 +400,19 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             >
               {isPlaying ? <Pause size={16} /> : <Play size={16} />}
               {isPlaying
-                ? 'Пауза'
+                ? t('Пауза', 'Pause')
                 : entry.music.mode === 'file'
-                  ? 'Включить трек'
-                  : 'Слушать атмосферу'}
+                  ? t('Включить трек', 'Play Track')
+                  : t('Слушать атмосферу', 'Listen to Atmosphere')}
             </button>
 
             <button
               className={`btn-secondary ${isSpeaking ? 'is-active' : ''}`}
               onClick={toggleVoice}
-              title={`Голос: ${entry.analysis.voiceProfile.label}`}
+              title={`${t('Голос', 'Voice')}: ${entry.analysis.voiceProfile.label}`}
             >
               {isSpeaking ? <VolumeX size={16} /> : <Mic size={16} />}
-              {isSpeaking ? 'Стоп голос' : 'Озвучить'}
+              {isSpeaking ? t('Стоп голос', 'Stop Voice') : t('Озвучить', 'Read Aloud')}
             </button>
           </div>
 
@@ -415,27 +420,29 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             <button
               className="btn-secondary"
               onClick={handleDownloadPng}
-              title="Сохранить открытку в PNG"
+              title={t('Сохранить открытку в PNG', 'Save postcard as PNG')}
             >
               <Download size={15} />
-              Открытка PNG
+              {t('Открытка PNG', 'Postcard PNG')}
             </button>
 
             <button
               className={`btn-secondary ${isRecording ? 'is-active' : ''}`}
               onClick={handleRecordVideo}
               disabled={isRecording}
-              title="Записать короткое видео со звуком (7 сек)"
+              title={t('Записать короткое видео со звуком (7 сек)', 'Record short video with audio (7s)')}
             >
               <Film size={15} />
-              {isRecording ? `Запись ${recordProgress}%...` : 'Видео WebM (7с)'}
+              {isRecording
+                ? `${t('Запись', 'Recording')} ${recordProgress}%...`
+                : t('Видео WebM (7с)', 'Video WebM (7s)')}
             </button>
           </div>
 
           <div className="voice-hint font-mono">
             <Volume2 size={13} />
             <span>
-              Голос: {entry.analysis.voiceProfile.label} ({entry.analysis.voiceProfile.rate}×)
+              {t('Голос', 'Voice')}: {entry.analysis.voiceProfile.label} ({entry.analysis.voiceProfile.rate}×)
             </span>
           </div>
         </div>
@@ -444,7 +451,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         <div className="folder-details">
           <div className="detail-card">
             <div className="detail-meta-row font-mono">
-              <span>ДЕНЬ // {String(entry.indexNumber).padStart(2, '0')}</span>
+              <span>{t('ДЕНЬ //', 'DAY //')} {String(entry.indexNumber).padStart(2, '0')}</span>
               <span>{entry.dateLabel}</span>
               {entry.location && <span>{entry.location}</span>}
               {entry.weather && <span>{entry.weather}</span>}
@@ -472,7 +479,10 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
           <div className="detail-card">
             <div className="section-label-row">
               <h3 className="section-label font-mono">
-                СОДЕРЖИМОЕ ПАПКИ ДНЯ ({entry.photos.length} ФОТО)
+                {t(
+                  `СОДЕРЖИМОЕ ПАПКИ ДНЯ (${entry.photos.length} ФОТО)`,
+                  `DAY FOLDER CONTENTS (${entry.photos.length} PHOTOS)`
+                )}
               </h3>
               {pinnedPhotoIndex !== null && (
                 <button
@@ -480,7 +490,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                   className="btn-ghost font-mono"
                   onClick={() => setPinnedPhotoIndex(null)}
                 >
-                  Вернуть авто-слайдшоу
+                  {t('Вернуть авто-слайдшоу', 'Resume slideshow')}
                 </button>
               )}
             </div>
@@ -493,8 +503,8 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                 </div>
                 <div className="music-meta font-mono">
                   {entry.music.genre} · {entry.music.bpm} BPM ·{' '}
-                  {entry.music.tonality === 'minor' ? 'Минор' : 'Мажор'} ·
-                  Энергия {Math.round(entry.music.energy * 100)}%
+                  {entry.music.tonality === 'minor' ? t('Минор', 'Minor') : t('Мажор', 'Major')} ·{' '}
+                  {t('Энергия', 'Energy')} {Math.round(entry.music.energy * 100)}%
                 </div>
               </div>
               {entry.music.url && (
@@ -504,7 +514,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                   rel="noreferrer"
                   className="btn-ghost"
                 >
-                  Открыть трек <ExternalLink size={14} />
+                  {t('Открыть трек', 'Open track')} <ExternalLink size={14} />
                 </a>
               )}
             </div>
@@ -770,7 +780,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
           <div className="immersive-topbar">
             <span className="font-mono immersive-badge">
-              ДЕНЬ // {String(entry.indexNumber).padStart(2, '0')} ·{' '}
+              {t('ДЕНЬ //', 'DAY //')} {String(entry.indexNumber).padStart(2, '0')} ·{' '}
               {entry.analysis.folderName}
             </span>
             <div className="immersive-actions">
@@ -781,26 +791,32 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                   setFrostMode(next);
                   audioCtrlRef.current?.setMemoryClarity(next ? 0.08 : 1);
                 }}
-                title="Покрыть воспоминание туманом времени и стереть его курсором"
+                title={t(
+                  'Покрыть воспоминание туманом времени и стереть его курсором',
+                  'Cover the memory in fog of time and wipe it with cursor'
+                )}
               >
                 <Sparkles size={15} />
-                {frostMode ? 'Туман: ВКЛ' : 'Туман памяти'}
+                {frostMode ? t('Туман: ВКЛ', 'Fog: ON') : t('Туман памяти', 'Memory Fog')}
               </button>
               <button
                 className={`btn-secondary ${isAutoReel ? 'is-active' : ''}`}
                 onClick={() => setIsAutoReel((prev) => !prev)}
-                title="Автоматически листать все дни дневника как фильм"
+                title={t(
+                  'Автоматически листать все дни дневника как фильм',
+                  'Automatically cycle all diary days like a film'
+                )}
               >
                 <Film size={15} />
-                {isAutoReel ? 'Авто-фильм: ВКЛ' : 'Авто-фильм'}
+                {isAutoReel ? t('Авто-фильм: ВКЛ', 'Auto-film: ON') : t('Авто-фильм', 'Auto-film')}
               </button>
               <button className="btn-secondary" onClick={togglePlay}>
                 {isPlaying ? <Pause size={15} /> : <Play size={15} />}
-                {isPlaying ? 'Пауза' : 'Звук'}
+                {isPlaying ? t('Пауза', 'Pause') : t('Звук', 'Sound')}
               </button>
               <button className="btn-secondary" onClick={toggleVoice}>
                 {isSpeaking ? <VolumeX size={15} /> : <Mic size={15} />}
-                {isSpeaking ? 'Стоп голос' : 'Озвучить'}
+                {isSpeaking ? t('Стоп голос', 'Stop Voice') : t('Озвучить', 'Read Aloud')}
               </button>
               <button
                 className="btn-primary"
@@ -810,7 +826,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                 }}
               >
                 <Minimize2 size={15} />
-                Выйти
+                {t('Выйти', 'Exit')}
               </button>
             </div>
           </div>

@@ -132,6 +132,9 @@ export class DayAudioController {
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext;
     this.ctx = new AudioCtx();
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 64;
     this.freqData = new Uint8Array(

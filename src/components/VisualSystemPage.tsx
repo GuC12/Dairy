@@ -12,6 +12,7 @@ import {
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
 import { analyzeLocally } from '../engine/atmosphereEngine';
 import { MemoryCanvas } from './MemoryCanvas';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface VisualSystemPageProps {
   sampleEntry?: DiaryEntry;
@@ -19,8 +20,10 @@ interface VisualSystemPageProps {
 
 const SANDBOX_PRESETS: Array<{
   movement: ArtMovementId;
-  label: string;
-  text: string;
+  labelRu: string;
+  labelEn: string;
+  textRu: string;
+  textEn: string;
   bpm: number;
   tonality: 'major' | 'minor';
   energy: number;
@@ -29,8 +32,10 @@ const SANDBOX_PRESETS: Array<{
 }> = [
   {
     movement: 'impressionism',
-    label: '01 // Моне (Импрессионизм)',
-    text: 'Тёплый солнечный день в осеннем парке, пили горячее какао у пруда и долго разговаривали.',
+    labelRu: '01 // Моне (Импрессионизм)',
+    labelEn: '01 // Monet (Impressionism)',
+    textRu: 'Тёплый солнечный день в осеннем парке, пили горячее какао у пруда и долго разговаривали.',
+    textEn: 'Warm sunny day in the autumn park, drank hot cocoa by the pond and talked for hours.',
     bpm: 76,
     tonality: 'major',
     energy: 0.36,
@@ -39,8 +44,10 @@ const SANDBOX_PRESETS: Array<{
   },
   {
     movement: 'constructivism',
-    label: '02 // Кандинский (Конструктивизм)',
-    text: 'Срочная сдача проекта, ночь в офисе, дедлайн, код на экране и плотный электронный ритм.',
+    labelRu: '02 // Кандинский (Конструктивизм)',
+    labelEn: '02 // Kandinsky (Constructivism)',
+    textRu: 'Срочная сдача проекта, ночь в офисе, дедлайн, код на экране и плотный электронный ритм.',
+    textEn: 'Urgent project deadline, late night at the office, code on screen and dense electronic rhythm.',
     bpm: 132,
     tonality: 'minor',
     energy: 0.88,
@@ -49,8 +56,10 @@ const SANDBOX_PRESETS: Array<{
   },
   {
     movement: 'wabi-sabi',
-    label: '03 // Ваби-саби (Минимализм)',
-    text: 'Тишина, туман над пустым утренним берегом, медленный поезд и спокойное созерцание.',
+    labelRu: '03 // Ваби-саби (Минимализм)',
+    labelEn: '03 // Wabi-Sabi (Minimalism)',
+    textRu: 'Тишина, туман над пустым утренним берегом, медленный поезд и спокойное созерцание.',
+    textEn: 'Silence, mist over the empty morning shore, slow train and calm contemplation.',
     bpm: 64,
     tonality: 'minor',
     energy: 0.22,
@@ -59,8 +68,10 @@ const SANDBOX_PRESETS: Array<{
   },
   {
     movement: 'film-35mm',
-    label: '04 // Плёнка 35mm (Коллаж)',
-    text: 'Вечерняя прогулка по городу на старом трамвае, огни витрин и кофе на остановке.',
+    labelRu: '04 // Плёнка 35mm (Коллаж)',
+    labelEn: '04 // 35mm Film (Collage)',
+    textRu: 'Вечерняя прогулка по городу на старом трамвае, огни витрин и кофе на остановке.',
+    textEn: 'Evening tram ride through the city, storefront lights and coffee at the stop.',
     bpm: 104,
     tonality: 'major',
     energy: 0.56,
@@ -70,15 +81,16 @@ const SANDBOX_PRESETS: Array<{
 ];
 
 const WEATHER_PRESETS = [
-  { id: 'leaves', label: 'Осенний листопад', weather: '+8°C, листопад в парке' },
-  { id: 'rain', label: 'Дождь и гроза', weather: '+6°C, дождь и гроза' },
-  { id: 'mist', label: 'Густой туман', weather: '+4°C, густой туман у моря' },
-  { id: 'snow', label: 'Зимний снегопад', weather: '-4°C, тихий снег' },
+  { id: 'leaves', labelRu: 'Осенний листопад', labelEn: 'Autumn leaves', weatherRu: '+8°C, листопад в парке', weatherEn: '+8°C, park foliage' },
+  { id: 'rain', labelRu: 'Дождь и гроза', labelEn: 'Rain & storm', weatherRu: '+6°C, дождь и гроза', weatherEn: '+6°C, rain and thunder' },
+  { id: 'mist', labelRu: 'Густой туман', labelEn: 'Dense fog', weatherRu: '+4°C, густой туман у моря', weatherEn: '+4°C, dense seaside mist' },
+  { id: 'snow', labelRu: 'Зимний снегопад', labelEn: 'Winter snow', weatherRu: '-4°C, тихий снег', weatherEn: '-4°C, gentle snowfall' },
 ];
 
 export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
   sampleEntry,
 }) => {
+  const { lang, t } = useLanguage();
   const [presetIdx, setPresetIdx] = useState(0);
   const [weatherIdx, setWeatherIdx] = useState(0);
 
@@ -86,7 +98,9 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
     const preset = SANDBOX_PRESETS[presetIdx];
     const wPreset = WEATHER_PRESETS[weatherIdx];
     const photos = sampleEntry?.photos ?? [];
-    const combinedText = `${preset.text} (${wPreset.weather})`;
+    const chosenText = lang === 'en' ? preset.textEn : preset.textRu;
+    const chosenWeather = lang === 'en' ? wPreset.weatherEn : wPreset.weatherRu;
+    const combinedText = `${chosenText} (${chosenWeather})`;
     const music = {
       mode: 'link' as const,
       artist: preset.artist,
@@ -102,37 +116,42 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
       id: 'sandbox_demo',
       indexNumber: presetIdx + 1,
       createdAt: '2026-11-21T00:00:00.000Z',
-      dateLabel: '21 ноября 2026',
-      weather: wPreset.weather,
-      location: 'Интерактивный стенд',
+      dateLabel: lang === 'en' ? 'November 21, 2026' : '21 ноября 2026',
+      weather: chosenWeather,
+      location: lang === 'en' ? 'Interactive Stand' : 'Интерактивный стенд',
       text: combinedText,
-      signature: 'Один кадр — четыре визуальных языка',
+      signature: lang === 'en' ? 'One frame — four visual languages' : 'Один кадр — четыре визуальных языка',
       photos,
       music,
       analysis,
     };
-  }, [presetIdx, weatherIdx, sampleEntry]);
+  }, [presetIdx, weatherIdx, sampleEntry, lang]);
 
   return (
     <div className="system-page view-enter">
       <div className="system-header">
         <div className="font-mono section-kicker">
-          АРХИТЕКТУРА И ВИЗУАЛЬНАЯ ГРАММАТИКА
+          {t('АРХИТЕКТУРА И ВИЗУАЛЬНАЯ ГРАММАТИКА', 'ARCHITECTURE & VISUAL GRAMMAR')}
         </div>
         <h1 className="font-serif create-title">
-          Единая визуальная система дневника
+          {t('Единая визуальная система дневника', 'Unified Visual Diary System')}
         </h1>
         <p className="hero-subtitle">
-          Дневник — это серия, а не набор случайных картинок. Каждая генерация
-          подчиняется строгим правилам перевода невидимого ощущения дня в
-          видимую форму.
+          {t(
+            'Дневник — это серия, а не набор случайных картинок. Каждая генерация подчиняется строгим правилам перевода невидимого ощущения дня в видимую форму.',
+            'A diary is a coherent series, not random pictures. Every generation follows strict rules translating the invisible feeling of a day into a tangible form.'
+          )}
         </p>
       </div>
 
       {/* Интерактивная лаборатория визуальной системы для демонстрации жюри */}
       <div className="system-card sandbox-card">
         <div className="system-card-title font-mono">
-          <Sliders size={16} /> ИНТЕРАКТИВНАЯ ЛАБОРАТОРИЯ // ПРОВЕРКА ПРАВИЛ ВЖИВУЮ
+          <Sliders size={16} />{' '}
+          {t(
+            'ИНТЕРАКТИВНАЯ ЛАБОРАТОРИЯ // ПРОВЕРКА ПРАВИЛ ВЖИВУЮ',
+            'INTERACTIVE LAB // LIVE RULE VERIFICATION'
+          )}
         </div>
 
         <div className="sandbox-grid">
@@ -142,15 +161,18 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
 
           <div className="sandbox-controls-col">
             <p className="sandbox-intro">
-              Переключайте художественные режимы и погодные слои на одном и том
-              же кадре (и проведите курсором по холсту слева), чтобы увидеть,
-              как <strong>постоянная сетка 4:5</strong> сохраняет узнаваемость
-              дневника, а <strong>переменные элементы</strong> меняют атмосферу:
+              {t(
+                'Переключайте художественные режимы и погодные слои на одном и том же кадре (и проведите курсором по холсту слева), чтобы увидеть, как постоянная сетка 4:5 сохраняет узнаваемость дневника, а переменные элементы меняют атмосферу:',
+                'Switch artistic movements and weather layers on the same frame (and hover across the canvas on the left) to see how the persistent 4:5 grid preserves identity while dynamic variables shift the atmosphere:'
+              )}
             </p>
 
             <div className="sandbox-group">
               <div className="mini-label font-mono">
-                1. ХУДОЖЕСТВЕННЫЙ РЕЖИМ И МУЗЫКАЛЬНЫЙ РИТМ
+                {t(
+                  '1. ХУДОЖЕСТВЕННЫЙ РЕЖИМ И МУЗЫКАЛЬНЫЙ РИТМ',
+                  '1. ARTISTIC MOVEMENT & SONIC PULSE'
+                )}
               </div>
               <div className="sandbox-buttons-grid">
                 {SANDBOX_PRESETS.map((p, idx) => (
@@ -160,9 +182,12 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
                     className={`sandbox-btn ${presetIdx === idx ? 'active' : ''}`}
                     onClick={() => setPresetIdx(idx)}
                   >
-                    <div className="sandbox-btn-title font-mono">{p.label}</div>
+                    <div className="sandbox-btn-title font-mono">
+                      {t(p.labelRu, p.labelEn)}
+                    </div>
                     <div className="sandbox-btn-sub">
-                      {p.bpm} BPM · {p.tonality === 'minor' ? 'Минор' : 'Мажор'}
+                      {p.bpm} BPM ·{' '}
+                      {p.tonality === 'minor' ? t('Минор', 'Minor') : t('Мажор', 'Major')}
                     </div>
                   </button>
                 ))}
@@ -171,7 +196,10 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
 
             <div className="sandbox-group">
               <div className="mini-label font-mono">
-                2. АТМОСФЕРНЫЙ ПОГОДНЫЙ СЛОЙ (ЧАСТИЦЫ ХОЛСТА)
+                {t(
+                  '2. АТМОСФЕРНЫЙ ПОГОДНЫЙ СЛОЙ (ЧАСТИЦЫ ХОЛСТА)',
+                  '2. ATMOSPHERIC WEATHER LAYER (PARTICLES)'
+                )}
               </div>
               <div className="filter-pills">
                 {WEATHER_PRESETS.map((w, idx) => (
@@ -182,7 +210,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
                     onClick={() => setWeatherIdx(idx)}
                   >
                     <CloudRain size={13} />
-                    {w.label}
+                    {t(w.labelRu, w.labelEn)}
                   </button>
                 ))}
               </div>
@@ -191,7 +219,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
             <div className="visual-math-grid font-mono">
               <div className="math-meter">
                 <div className="math-meter-head">
-                  <span>Воздух (Паспарту)</span>
+                  <span>{t('Воздух (Паспарту)', 'Whitespace (Matte)')}</span>
                   <strong>
                     {Math.round(
                       sandboxEntry.analysis.visualParams.whitespace * 100
@@ -214,7 +242,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
 
               <div className="math-meter">
                 <div className="math-meter-head">
-                  <span>Жёсткость сетки</span>
+                  <span>{t('Жёсткость сетки', 'Grid Rigidity')}</span>
                   <strong>
                     {Math.round(
                       sandboxEntry.analysis.visualParams.gridRigidity * 100
@@ -237,7 +265,7 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
 
               <div className="math-meter">
                 <div className="math-meter-head">
-                  <span>Скорость ритма</span>
+                  <span>{t('Скорость ритма', 'Rhythm Speed')}</span>
                   <strong>
                     {sandboxEntry.analysis.visualParams.rhythmSpeed}×
                   </strong>
@@ -266,47 +294,66 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
       <div className="system-grid-2">
         <div className="system-card">
           <div className="system-card-title font-mono">
-            <Layers size={16} /> ПОСТОЯННЫЕ ЭЛЕМЕНТЫ (ЦЕЛЬНОСТЬ ЛЕНТЫ)
+            <Layers size={16} />{' '}
+            {t(
+              'ПОСТОЯННЫЕ ЭЛЕМЕНТЫ (ЦЕЛЬНОСТЬ ЛЕНТЫ)',
+              'CONSTANT ELEMENTS (FEED COHESION)'
+            )}
           </div>
           <ul className="system-list">
             <li>
-              <strong>Единый формат 4:5:</strong> каждая запись оформляется как
-              коллекционная страница дневника с фиксированной внешней
-              рамкой-паспарту и Pantone-чипами палитры.
+              <strong>{t('Единый формат 4:5:', 'Unified 4:5 format:')}</strong>{' '}
+              {t(
+                'каждая запись оформляется как коллекционная страница дневника с фиксированной внешней рамкой-паспарту и Pantone-чипами палитры.',
+                'every entry is structured as a collectible diary page with a fixed passe-partout matte and Pantone palette swatches.'
+              )}
             </li>
             <li>
-              <strong>Типографическая иерархия:</strong> моноширинный индекс{' '}
-              <code>ДЕНЬ // 01</code>, дата и погода сверху; поэтичный заголовок
-              папки (3–7 слов) на антикве <em>Cormorant Garamond</em> и личная
-              рукописная подпись снизу.
+              <strong>{t('Типографическая иерархия:', 'Typographic hierarchy:')}</strong>{' '}
+              {t(
+                'моноширинный индекс ДЕНЬ // 01, дата и погода сверху; поэтичный заголовок папки (3–7 слов) на антикве Cormorant Garamond и личная рукописная подпись снизу.',
+                'monospace DAY // 01 index, date and weather at top; poetic folder title (3–7 words) in Cormorant Garamond serif and personal handwritten signature at bottom.'
+              )}
             </li>
             <li>
-              <strong>Окно встраивания фото:</strong> снимки всегда живут внутри
-              центрального кадра и не выпадают из общей сетки.
+              <strong>{t('Окно встраивания фото:', 'Photo viewport frame:')}</strong>{' '}
+              {t(
+                'снимки всегда живут внутри центрального кадра и не выпадают из общей сетки.',
+                'photos always live inside the unified central frame, preserving editorial grid discipline.'
+              )}
             </li>
           </ul>
         </div>
 
         <div className="system-card">
           <div className="system-card-title font-mono">
-            <Palette size={16} /> ПЕРЕМЕННЫЕ ЭЛЕМЕНТЫ (УНИКАЛЬНОСТЬ ДНЯ)
+            <Palette size={16} />{' '}
+            {t(
+              'ПЕРЕМЕННЫЕ ЭЛЕМЕНТЫ (УНИКАЛЬНОСТЬ ДНЯ)',
+              'DYNAMIC VARIABLES (DAILY UNIQUENESS)'
+            )}
           </div>
           <ul className="system-list">
             <li>
-              <strong>Адаптивная палитра:</strong> вычисляется из доминирующих
-              цветов загруженных фото (Canvas-квантование) и сдвигается по
-              температуре настроения и тональности музыки.
+              <strong>{t('Адаптивная палитра:', 'Adaptive palette:')}</strong>{' '}
+              {t(
+                'вычисляется из доминирующих цветов загруженных фото (Canvas-квантование) и сдвигается по температуре настроения и тональности музыки.',
+                'extracted from dominant photo colors (Canvas quantization) and modulated by emotional valence and musical tonality.'
+              )}
             </li>
             <li>
-              <strong>Плотность «воздуха» и сетка:</strong> тихие минорные дни
-              увеличивают поля паспарту, напряжённые — сжимают их жёсткой
-              сеткой.
+              <strong>{t('Плотность «воздуха» и сетка:', 'Whitespace & grid density:')}</strong>{' '}
+              {t(
+                'тихие минорные дни увеличивают поля паспарту, напряжённые — сжимают их жёсткой сеткой.',
+                'quiet minor-key days expand negative space, while intense days contract into a rigid geometric grid.'
+              )}
             </li>
             <li>
-              <strong>Ритм, погода и тактильный отклик:</strong> скорость смены
-              кадров, погодные частицы (дождь, листья, туман, снег), мазки и
-              геометрия откликаются на курсор и реальный спектр музыки (Web
-              Audio API).
+              <strong>{t('Ритм, погода и тактильный отклик:', 'Rhythm, weather & tactile feedback:')}</strong>{' '}
+              {t(
+                'скорость смены кадров, погодные частицы (дождь, листья, туман, снег), мазки и геометрия откликаются на курсор и реальный спектр музыки (Web Audio API).',
+                'frame transitions, weather particles (rain, leaves, fog, snow), brushstrokes and geometry respond live to the cursor and real audio spectrum (Web Audio API).'
+              )}
             </li>
           </ul>
         </div>
@@ -314,61 +361,94 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
 
       <div className="system-card">
         <div className="system-card-title font-mono">
-          <BookOpen size={16} /> 4 ХУДОЖЕСТВЕННЫХ ПРИЁМА И РЕФЕРЕНСА
+          <BookOpen size={16} />{' '}
+          {t(
+            '4 ХУДОЖЕСТВЕННЫХ ПРИЁМА И РЕФЕРЕНСА',
+            '4 ARTISTIC MOVEMENTS & HISTORICAL REFERENCES'
+          )}
         </div>
         <div className="movements-grid">
           <div className="movement-box">
-            <div className="movement-tag font-mono">01 // ИМПРЕССИОНИЗМ</div>
-            <h3>Клод Моне — свет и мазки</h3>
+            <div className="movement-tag font-mono">
+              {t('01 // ИМПРЕССИОНИЗМ', '01 // IMPRESSIONISM')}
+            </div>
+            <h3>{t('Клод Моне — свет и мазки', 'Claude Monet — Light & Strokes')}</h3>
             <p>
-              <strong>Когда включается:</strong> тёплые, спокойные,
-              ностальгические дни, мажорная музыка, мягкий свет на фото.
+              <strong>{t('Когда включается:', 'When it activates:')}</strong>{' '}
+              {t(
+                'тёплые, спокойные, ностальгические дни, мажорная музыка, мягкий свет на фото.',
+                'warm, nostalgic, peaceful days, major-key melody, soft ambient sunlight.'
+              )}
             </p>
             <p>
-              <strong>Как передаёт ощущение:</strong> полупрозрачные мазки из
-              палитры снимков, диффузный свет и плавный кроссфейд кадров создают
-              эффект тёплого воспоминания.
-            </p>
-          </div>
-
-          <div className="movement-box">
-            <div className="movement-tag font-mono">02 // КОНСТРУКТИВИЗМ</div>
-            <h3>Василий Кандинский — геометрия</h3>
-            <p>
-              <strong>Когда включается:</strong> высокий темп (&gt;115 BPM),
-              высокая энергия, дедлайны, ночная работа, электроника.
-            </p>
-            <p>
-              <strong>Как передаёт ощущение:</strong> глубокая сапфировая
-              палитра, пересекающиеся оси, резкая смена кадров и импульсные
-              фигуры в такт басу.
+              <strong>{t('Как передаёт ощущение:', 'Sensory expression:')}</strong>{' '}
+              {t(
+                'полупрозрачные мазки из палитры снимков, диффузный свет и плавный кроссфейд кадров создают эффект тёплого воспоминания.',
+                'translucent brushwork sampled from photo hues, diffuse light, and soft crossfades evoke a warm memory.'
+              )}
             </p>
           </div>
 
           <div className="movement-box">
-            <div className="movement-tag font-mono">03 // ЯПОНСКИЙ МИНИМАЛИЗМ</div>
-            <h3>Ваби-саби — воздух и тишина</h3>
+            <div className="movement-tag font-mono">
+              {t('02 // КОНСТРУКТИВИЗМ', '02 // CONSTRUCTIVISM')}
+            </div>
+            <h3>{t('Василий Кандинский — геометрия', 'Wassily Kandinsky — Geometry')}</h3>
             <p>
-              <strong>Когда включается:</strong> медленный темп (&le;82 BPM),
-              минорная тональность, туман, дождь, созерцание.
+              <strong>{t('Когда включается:', 'When it activates:')}</strong>{' '}
+              {t(
+                'высокий темп (>115 BPM), высокая энергия, дедлайны, ночная работа, электроника.',
+                'high tempo (>115 BPM), high energy, crunch deadlines, late-night code, electronic pulse.'
+              )}
             </p>
             <p>
-              <strong>Как передаёт ощущение:</strong> увеличенное негативное
-              пространство вокруг фото, нефритово-селадоновый тон, печать ханко
-              и тонкая горизонтальная линия туши.
+              <strong>{t('Как передаёт ощущение:', 'Sensory expression:')}</strong>{' '}
+              {t(
+                'глубокая сапфировая палитра, пересекающиеся оси, резкая смена кадров и импульсные фигуры в такт басу.',
+                'deep sapphire palette, intersecting axes, angular cuts, and geometric impulse rings synced to sub-bass.'
+              )}
             </p>
           </div>
 
           <div className="movement-box">
-            <div className="movement-tag font-mono">04 // АНАЛОГОВАЯ ПЛЁНКА</div>
-            <h3>Плёнка 35mm / Коллаж</h3>
+            <div className="movement-tag font-mono">
+              {t('03 // ЯПОНСКИЙ МИНИМАЛИЗМ', '03 // JAPANESE MINIMALISM')}
+            </div>
+            <h3>{t('Ваби-саби — воздух и тишина', 'Wabi-Sabi — Space & Stillness')}</h3>
             <p>
-              <strong>Когда включается:</strong> живые городские прогулки,
-              смешанное настроение, средний темп, инди/поп.
+              <strong>{t('Когда включается:', 'When it activates:')}</strong>{' '}
+              {t(
+                'медленный темп (≤82 BPM), минорная тональность, туман, дождь, созерцание.',
+                'slow tempo (≤82 BPM), minor key, fog, rain, solitary contemplation.'
+              )}
             </p>
             <p>
-              <strong>Как передаёт ощущение:</strong> бегущая перфорация кадра,
-              боковая засветка, зернистость и движение хроники.
+              <strong>{t('Как передаёт ощущение:', 'Sensory expression:')}</strong>{' '}
+              {t(
+                'увеличенное негативное пространство вокруг фото, нефритово-селадоновый тон, печать ханко и тонкая горизонтальная линия туши.',
+                'expanded negative space, celadon jade mist, red hanko stamp seal, and delicate horizontal sumi ink lines.'
+              )}
+            </p>
+          </div>
+
+          <div className="movement-box">
+            <div className="movement-tag font-mono">
+              {t('04 // АНАЛОГОВАЯ ПЛЁНКА', '04 // ANALOG FILM')}
+            </div>
+            <h3>{t('Плёнка 35mm / Коллаж', '35mm Film / Collage')}</h3>
+            <p>
+              <strong>{t('Когда включается:', 'When it activates:')}</strong>{' '}
+              {t(
+                'живые городские прогулки, смешанное настроение, средний темп, инди/поп.',
+                'vibrant city walks, mixed mood, mid-tempo, indie and acoustic rhythm.'
+              )}
+            </p>
+            <p>
+              <strong>{t('Как передаёт ощущение:', 'Sensory expression:')}</strong>{' '}
+              {t(
+                'бегущая перфорация кадра, боковая засветка, зернистость и движение хроники.',
+                'scrolling sprocket perforation, warm lateral light leaks, film grain, and cinematic chronicle pulse.'
+              )}
             </p>
           </div>
         </div>
@@ -377,50 +457,69 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
       <div className="system-grid-2">
         <div className="system-card">
           <div className="system-card-title font-mono">
-            <Music size={16} /> КАК ВВОД ВЛИЯЕТ НА РЕЗУЛЬТАТ
+            <Music size={16} />{' '}
+            {t(
+              'КАК ВВОД ВЛИЯЕТ НА РЕЗУЛЬТАТ',
+              'HOW MULTIMODAL INPUT SHAPES OUTPUT'
+            )}
           </div>
           <ul className="system-list">
             <li>
-              <strong>Текст и голос:</strong> определяют время суток, сезон,
-              погоду и валентность настроения, генерируют название папки (3–7
-              слов) и профиль голоса для озвучки.
+              <strong>{t('Текст и голос:', 'Text & voice:')}</strong>{' '}
+              {t(
+                'определяют время суток, сезон, погоду и валентность настроения, генерируют название папки (3–7 слов) и профиль голоса для озвучки.',
+                'determine time of day, season, weather, and mood valence, generating a poetic folder title (3–7 words) and voice reading profile.'
+              )}
             </li>
             <li>
-              <strong>Фото:</strong> Canvas извлекает 4 доминирующих цвета,
-              яркость и контраст — они становятся цветовой основой страницы и
-              мазков.
+              <strong>{t('Фото:', 'Photos:')}</strong>{' '}
+              {t(
+                'Canvas извлекает 4 доминирующих цвета, яркость и контраст — они становятся цветовой основой страницы и мазков.',
+                'Canvas extracts 4 dominant colors, brightness, and contrast — becoming the chromatic foundation of the page and strokes.'
+              )}
             </li>
             <li>
-              <strong>Музыка:</strong> Web Audio API оценивает BPM и энергию
-              аудиофайла (или использует 30-секундные официальные превью треков
-              + процедурный саундскейп с виниловым треском), управляя скоростью
-              анимации и пульсацией в 60 FPS.
+              <strong>{t('Музыка:', 'Music:')}</strong>{' '}
+              {t(
+                'Web Audio API оценивает BPM и энергию аудиофайла (или использует 30-секундные официальные превью треков + процедурный саундскейп с виниловым треском), управляя скоростью анимации и пульсацией в 60 FPS.',
+                'Web Audio API analyzes BPM and energy (or streams official 30s track previews + procedural vinyl crackle soundscapes), orchestrating 60 FPS visual physics.'
+              )}
             </li>
           </ul>
         </div>
 
         <div className="system-card">
           <div className="system-card-title font-mono">
-            <Cpu size={16} /> ИСПОЛЬЗОВАННЫЕ ИНСТРУМЕНТЫ И СТЕК
+            <Cpu size={16} />{' '}
+            {t(
+              'ИСПОЛЬЗОВАННЫЕ ИНСТРУМЕНТЫ И СТЕК',
+              'TOOLS & TECH STACK'
+            )}
           </div>
           <ul className="system-list">
             <li>
-              <strong>Клиентская часть:</strong> React 19, TypeScript, Vite.
+              <strong>{t('Клиентская часть:', 'Frontend Client:')}</strong> React 19, TypeScript, Vite.
             </li>
             <li>
-              <strong>Графика и физика холста:</strong> HTML5 Canvas 2D
-              (квантование цветов, погодные частицы, тактильный след курсора,
-              экспорт PNG и запись WebM-видео через <code>MediaRecorder</code>).
+              <strong>{t('Графика и физика холста:', 'Canvas 2D Graphics:')}</strong> HTML5 Canvas 2D{' '}
+              {t(
+                '(квантование цветов, погодные частицы, тактильный след курсора, экспорт PNG и запись WebM-видео через MediaRecorder).',
+                '(color quantization, weather particles, cursor trace physics, PNG export, and WebM video recording via MediaRecorder).'
+              )}
             </li>
             <li>
-              <strong>Аудио и речь:</strong> Web Audio API (
-              <code>AnalyserNode</code>, оценка BPM/RMS, виниловый эмбиент-слой),
-              iTunes Search API (30-сек превью), Web Speech API (синтез речи и
-              голосовая диктовка).
+              <strong>{t('Аудио и речь:', 'Audio & Speech:')}</strong> Web Audio API{' '}
+              {t(
+                '(AnalyserNode, оценка BPM/RMS, виниловый эмбиент-слой), iTunes Search API (30-сек превью), Web Speech API (синтез речи и голосовая диктовка).',
+                '(AnalyserNode, BPM/RMS estimation, procedural vinyl layer), iTunes Search API (30s preview), Web Speech API (speech synthesis & voice dictation).'
+              )}
             </li>
             <li>
-              <strong>Хранилище и гео-контекст:</strong> IndexedDB для локальных
-              папок дней + Open-Meteo & Nominatim API для авто-погоды.
+              <strong>{t('Хранилище и синхронизация:', 'Storage & Cloud Sync:')}</strong> IndexedDB{' '}
+              {t(
+                'для локальных изолированных папок + Supabase PostgreSQL & Clerk для облачной синхронизации.',
+                'for isolated local memory vaults + Supabase PostgreSQL & Clerk for cloud synchronization.'
+              )}
             </li>
           </ul>
         </div>
@@ -429,8 +528,10 @@ export const VisualSystemPage: React.FC<VisualSystemPageProps> = ({
       <div className="system-footer-note font-mono">
         <Sparkles size={14} />
         <span>
-          Все демо-дни в архиве сгенерированы без использования чужих личных
-          дневников или защищённых авторским правом полных аудиофайлов.
+          {t(
+            'Все демо-дни в архиве сгенерированы без использования чужих личных дневников или защищённых авторским правом полных аудиофайлов.',
+            'All demo days in the archive were generated without using copyrighted audio or other people’s personal diaries.'
+          )}
         </span>
       </div>
     </div>

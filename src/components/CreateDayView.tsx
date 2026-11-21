@@ -28,6 +28,7 @@ import {
   type TrackSearchResult,
 } from '../engine/musicSearch';
 import { MemoryCanvas } from './MemoryCanvas';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface CreateDayViewProps {
   nextIndex: number;
@@ -85,11 +86,12 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
   onCreated,
   onCancel,
 }) => {
+  const { lang, t } = useLanguage();
   const [text, setText] = useState(editingEntry?.text ?? '');
   const [dateLabel, setDateLabel] = useState(
     () =>
       editingEntry?.dateLabel ??
-      new Date().toLocaleDateString('ru-RU', {
+      new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -163,7 +165,12 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         .webkitSpeechRecognition;
 
     if (!SpeechRec) {
-      setError('Ваш браузер не поддерживает голосовую диктовку (используйте Chrome/Edge).');
+      setError(
+        t(
+          'Ваш браузер не поддерживает голосовую диктовку (используйте Chrome/Edge).',
+          'Your browser does not support voice dictation (please use Chrome or Edge).'
+        )
+      );
       return;
     }
 
@@ -180,7 +187,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         start: () => void;
         stop: () => void;
       };
-      rec.lang = 'ru-RU';
+      rec.lang = lang === 'en' ? 'en-US' : 'ru-RU';
       rec.continuous = true;
       rec.interimResults = false;
 
@@ -304,14 +311,17 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
     const previewText =
       text.trim() ||
-      'Напишите о своём дне, чтобы увидеть, как меняется атмосфера...';
+      t(
+        'Напишите о своём дне, чтобы увидеть, как меняется атмосфера...',
+        'Write about your day to watch its living atmosphere unfold...'
+      );
     const analysis = analyzeLocally(previewText, photos, previewMusic);
 
     return {
       id: editingEntry?.id ?? 'live_preview',
       indexNumber: displayIndex,
       createdAt: editingEntry?.createdAt ?? '2026-01-01T00:00:00.000Z',
-      dateLabel: dateLabel.trim() || 'Сегодня',
+      dateLabel: dateLabel.trim() || t('Сегодня', 'Today'),
       weather: weather.trim() || undefined,
       location: location.trim() || undefined,
       text: previewText,
@@ -341,6 +351,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     audioFileName,
     displayIndex,
     editingEntry,
+    t,
   ]);
 
   const handlePhotoUpload = async (files: FileList | null) => {
@@ -355,12 +366,19 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         added.push(item);
       }
       if (added.length === 0) {
-        setError('Выберите файлы изображений (JPG, PNG, WebP).');
+        setError(
+          t(
+            'Выберите файлы изображений (JPG, PNG, WebP).',
+            'Please select image files (JPG, PNG, WebP).'
+          )
+        );
       } else {
         setPhotos((prev) => [...prev, ...added].slice(0, 6));
       }
     } catch {
-      setError('Не удалось прочитать одно из изображений.');
+      setError(
+        t('Не удалось прочитать одно из изображений.', 'Failed to read one of the images.')
+      );
     } finally {
       setIsAnalyzingPhotos(false);
     }
@@ -393,7 +411,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         setMusicTitle(file.name.replace(/\.[^.]+$/, ''));
       }
     } catch {
-      setError('Не удалось проанализировать аудиофайл.');
+      setError(
+        t('Не удалось проанализировать аудиофайл.', 'Failed to analyze the audio file.')
+      );
     } finally {
       setIsAnalyzingAudio(false);
     }
@@ -492,12 +512,20 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) {
-      setError('Напишите хотя бы пару предложений о том, как прошёл день.');
+      setError(
+        t(
+          'Напишите хотя бы пару предложений о том, как прошёл день.',
+          'Please write at least a few sentences about how your day went.'
+        )
+      );
       return;
     }
     if (photos.length === 0) {
       setError(
-        'Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).'
+        t(
+          'Добавьте хотя бы одну фотографию этого дня (или сгенерируйте тестовый кадр).',
+          'Please add at least one photo of this day (or generate a test frame).'
+        )
       );
       return;
     }
@@ -571,21 +599,24 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       <div className="create-header">
         <div>
           <div className="font-mono section-kicker">
-            МАСТЕРСКАЯ ДНЯ // ДЕНЬ {String(displayIndex).padStart(2, '0')}
+            {t('МАСТЕРСКАЯ ДНЯ // ДЕНЬ', 'DAY STUDIO // DAY')}{' '}
+            {String(displayIndex).padStart(2, '0')}
           </div>
           <h1 className="font-serif create-title">
-            {editingEntry ? 'Редактировать день' : 'Сохранить атмосферу дня'}
+            {editingEntry
+              ? t('Редактировать день', 'Edit Day')
+              : t('Сохранить атмосферу дня', 'Preserve Day Atmosphere')}
           </h1>
         </div>
         <div className="create-header-actions">
           {!editingEntry && (
             <button type="button" className="btn-ghost" onClick={fillQuickExample}>
               <Sparkles size={15} />
-              Заполнить пример
+              {t('Заполнить пример', 'Fill Sample')}
             </button>
           )}
           <button type="button" className="btn-ghost" onClick={onCancel}>
-            Отмена
+            {t('Отмена', 'Cancel')}
           </button>
         </div>
       </div>
@@ -596,45 +627,56 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
           <div className="form-card">
             <div className="form-card-head">
               <label className="form-label font-mono">
-                01 // КАК ПРОШЁЛ ДЕНЬ
+                {t('01 // КАК ПРОШЁЛ ДЕНЬ', '01 // HOW THE DAY WENT')}
               </label>
               <div className="photo-head-actions">
                 <button
                   type="button"
                   className={`btn-ghost ${isDictating ? 'dictation-active' : ''}`}
                   onClick={toggleDictation}
-                  title="Рассказать о дне голосом в микрофон"
+                  title={t(
+                    'Рассказать о дне голосом в микрофон',
+                    'Dictate your day story using the microphone'
+                  )}
                 >
                   {isDictating ? <MicOff size={14} /> : <Mic size={14} />}
-                  {isDictating ? 'Слушаю речь...' : 'Надиктовать голосом'}
+                  {isDictating
+                    ? t('Слушаю речь...', 'Listening...')
+                    : t('Надиктовать голосом', 'Voice Dictation')}
                 </button>
                 <button
                   type="button"
                   className="btn-ghost"
                   onClick={handleAutoWeatherGeo}
                   disabled={isDetectingGeo}
-                  title="С согласия пользователя определить реальную погоду и город"
+                  title={t(
+                    'С согласия пользователя определить реальную погоду и город',
+                    'Detect live weather and city with user permission'
+                  )}
                 >
                   {isDetectingGeo ? (
                     <Loader2 size={14} className="spin" />
                   ) : (
                     <MapPin size={14} />
                   )}
-                  Авто-погода и город
+                  {t('Авто-погода и город', 'Auto Weather & City')}
                 </button>
               </div>
             </div>
             <textarea
               className="textarea-main"
               rows={4}
-              placeholder="Опишите погоду, свет, звуки, людей рядом и главное ощущение этого дня..."
+              placeholder={t(
+                'Опишите погоду, свет, звуки, людей рядом и главное ощущение этого дня...',
+                'Describe the weather, light, sounds, people nearby, and how the day felt...'
+              )}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
 
             <div className="meta-inputs-grid">
               <div>
-                <label className="mini-label font-mono">Дата</label>
+                <label className="mini-label font-mono">{t('Дата', 'Date')}</label>
                 <input
                   type="text"
                   className="input-field"
@@ -643,7 +685,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 />
               </div>
               <div>
-                <label className="mini-label font-mono">Погода (опц.)</label>
+                <label className="mini-label font-mono">{t('Погода (опц.)', 'Weather (opt.)')}</label>
                 <input
                   type="text"
                   className="input-field"
@@ -653,21 +695,21 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 />
               </div>
               <div>
-                <label className="mini-label font-mono">Место (опц.)</label>
+                <label className="mini-label font-mono">{t('Место (опц.)', 'Location (opt.)')}</label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Парк, офис, поезд..."
+                  placeholder={t('Парк, офис, поезд...', 'Park, studio, train...')}
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mini-label font-mono">Подпись на странице</label>
+                <label className="mini-label font-mono">{t('Подпись на странице', 'Page signature')}</label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Короткая фраза внизу..."
+                  placeholder={t('Короткая фраза внизу...', 'Short closing phrase...')}
                   value={signature}
                   onChange={(e) => setSignature(e.target.value)}
                 />
@@ -679,12 +721,16 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
           <div className="form-card">
             <div className="form-card-head">
               <label className="form-label font-mono">
-                02 // РЕАЛЬНЫЕ ФОТОГРАФИИ ДНЯ (1–6 ШТ.)
+                {t(
+                  '02 // РЕАЛЬНЫЕ ФОТОГРАФИИ ДНЯ (1–6 ШТ.)',
+                  '02 // REAL PHOTOS OF THE DAY (1–6)'
+                )}
               </label>
               <div className="photo-head-actions">
                 {isAnalyzingPhotos && (
                   <span className="font-mono analyzing-badge">
-                    <Loader2 size={13} className="spin" /> Анализ цвета...
+                    <Loader2 size={13} className="spin" />{' '}
+                    {t('Анализ цвета...', 'Color analysis...')}
                   </span>
                 )}
                 <button
@@ -692,7 +738,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                   className="btn-ghost"
                   onClick={handleGenerateTestPhoto}
                 >
-                  <Wand2 size={14} /> Тестовый кадр
+                  <Wand2 size={14} /> {t('Тестовый кадр', 'Test Frame')}
                 </button>
               </div>
             </div>
@@ -712,7 +758,10 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
             >
               <ImagePlus size={20} />
               <span>
-                Перетащите фото сюда или нажмите для выбора (JPG, PNG, WebP)
+                {t(
+                  'Перетащите фото сюда или нажмите для выбора (JPG, PNG, WebP)',
+                  'Drag and drop photos here or click to browse (JPG, PNG, WebP)'
+                )}
               </span>
               <input
                 type="file"
@@ -755,35 +804,40 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
           {/* 3. Музыка */}
           <div className="form-card">
             <div className="form-card-head">
-              <label className="form-label font-mono">03 // ПЕСНЯ ЭТОГО ДНЯ</label>
+              <label className="form-label font-mono">
+                {t('03 // ПЕСНЯ ЭТОГО ДНЯ', '03 // SONG OF THE DAY')}
+              </label>
               <div className="mode-tabs">
                 <button
                   type="button"
                   className={`mode-tab ${musicMode === 'link' ? 'active' : ''}`}
                   onClick={() => setMusicMode('link')}
                 >
-                  <Link2 size={14} /> Поиск / Ссылка
+                  <Link2 size={14} /> {t('Поиск / Ссылка', 'Search / Link')}
                 </button>
                 <button
                   type="button"
                   className={`mode-tab ${musicMode === 'file' ? 'active' : ''}`}
                   onClick={() => setMusicMode('file')}
                 >
-                  <Upload size={14} /> Аудиофайл
+                  <Upload size={14} /> {t('Аудиофайл', 'Audio File')}
                 </button>
                 <button
                   type="button"
                   className="mode-tab"
                   onClick={handleAutoPickMusic}
                   disabled={isSuggestingMusic}
-                  title="Автоматически подобрать песню под текст и фото"
+                  title={t(
+                    'Автоматически подобрать песню под текст и фото',
+                    'Automatically pick a song matching text and photos'
+                  )}
                 >
                   {isSuggestingMusic ? (
                     <Loader2 size={14} className="spin" />
                   ) : (
                     <Sparkles size={14} />
                   )}
-                  Подобрать по дню
+                  {t('Подобрать по дню', 'Smart Match')}
                 </button>
               </div>
             </div>
@@ -794,7 +848,10 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                   <Search size={15} />
                   <input
                     type="text"
-                    placeholder="Найти реальный трек с 30-сек превью..."
+                    placeholder={t(
+                      'Найти реальный трек с 30-сек превью...',
+                      'Search real track with 30s preview...'
+                    )}
                     value={trackQuery}
                     onChange={(e) => setTrackQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -810,7 +867,9 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                     onClick={handleSearchTracks}
                     disabled={isSearchingTracks}
                   >
-                    {isSearchingTracks ? 'Ищем...' : 'Найти'}
+                    {isSearchingTracks
+                      ? t('Ищем...', 'Searching...')
+                      : t('Найти', 'Search')}
                   </button>
                 </div>
 
@@ -831,7 +890,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                             {tr.artist} — {tr.title}
                           </div>
                           <div className="track-result-sub font-mono">
-                            {tr.genre} · ~{tr.estimatedBpm} BPM · 30s превью
+                            {tr.genre} · ~{tr.estimatedBpm} BPM · 30s preview
                           </div>
                         </div>
                         <Check size={15} />
@@ -842,7 +901,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
                 {previewUrl && (
                   <div className="preview-audio-badge font-mono">
-                    ♪ Подключён официальный 30-сек фрагмент трека
+                    ♪ {t('Подключён официальный 30-сек фрагмент трека', 'Official 30s audio preview connected')}
                   </div>
                 )}
               </div>
@@ -853,10 +912,13 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
                 <Music size={20} />
                 <span>
                   {isAnalyzingAudio
-                    ? 'Анализируем BPM и энергию трека...'
+                    ? t('Анализируем BPM и энергию трека...', 'Analyzing BPM and audio energy...')
                     : audioFileName
-                      ? `Загружен: ${audioFileName} (${musicBpm} BPM)`
-                      : 'Загрузите MP3 / WAV / OGG — темп и энергия определятся автоматически'}
+                      ? `${t('Загружен', 'Loaded')}: ${audioFileName} (${musicBpm} BPM)`
+                      : t(
+                          'Загрузите MP3 / WAV / OGG — темп и энергия определятся автоматически',
+                          'Upload MP3 / WAV / OGG — tempo and energy will be detected automatically'
+                        )}
                 </span>
                 <input
                   type="file"
@@ -869,27 +931,27 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
             <div className="meta-inputs-grid">
               <div>
-                <label className="mini-label font-mono">Исполнитель</label>
+                <label className="mini-label font-mono">{t('Исполнитель', 'Artist')}</label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Имя исполнителя"
+                  placeholder={t('Имя исполнителя', 'Artist name')}
                   value={musicArtist}
                   onChange={(e) => setMusicArtist(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mini-label font-mono">Название трека *</label>
+                <label className="mini-label font-mono">{t('Название трека *', 'Track Title *')}</label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Название песни"
+                  placeholder={t('Название песни', 'Song title')}
                   value={musicTitle}
                   onChange={(e) => setMusicTitle(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mini-label font-mono">Жанр</label>
+                <label className="mini-label font-mono">{t('Жанр', 'Genre')}</label>
                 <input
                   type="text"
                   className="input-field"
@@ -900,7 +962,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               {musicMode === 'link' && (
                 <div>
                   <label className="mini-label font-mono">
-                    Ссылка на трек
+                    {t('Ссылка на трек', 'Track Link')}
                   </label>
                   <input
                     type="url"
@@ -916,11 +978,11 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
             <div className="auto-music-summary font-mono">
               <Sparkles size={13} />
               <span>
-                Авто-анализ: {effectiveBpm} BPM ·{' '}
-                {effectiveTonality === 'minor' ? 'Минор' : 'Мажор'} · Энергия{' '}
+                {t('Авто-анализ', 'Auto-analysis')}: {effectiveBpm} BPM ·{' '}
+                {effectiveTonality === 'minor' ? t('Минор', 'Minor') : t('Мажор', 'Major')} · {t('Энергия', 'Energy')}{' '}
                 {Math.round(effectiveEnergy * 100)}%
                 {!musicTitle.trim() && !audioDataUrl
-                  ? ' (если песню не указывать — подберём автоматически)'
+                  ? ` ${t('(если песню не указывать — подберём автоматически)', '(if omitted, we will pick one automatically)')}`
                   : ''}
               </span>
             </div>
@@ -937,14 +999,14 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
               {isGenerating ? (
                 <>
                   <Loader2 size={18} className="spin" />
-                  Сохраняем папку дня...
+                  {t('Сохраняем папку дня...', 'Saving day folder...')}
                 </>
               ) : (
                 <>
                   <Sparkles size={18} />
                   {editingEntry
-                    ? 'Сохранить изменения'
-                    : 'Сохранить воспоминание и папку дня'}
+                    ? t('Сохранить изменения', 'Save Changes')
+                    : t('Сохранить воспоминание и папку дня', 'Save Memory & Day Folder')}
                 </>
               )}
             </button>
@@ -954,7 +1016,7 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
         {/* Правая колонка: живой предпросмотр в реальном времени */}
         <aside className="studio-preview">
           <div className="preview-header font-mono">
-            <span>ЖИВОЙ ПРЕДПРОСМОТР // 4:5</span>
+            <span>{t('ЖИВОЙ ПРЕДПРОСМОТР // 4:5', 'LIVE PREVIEW // 4:5')}</span>
             <span className="preview-regime">
               {livePreviewEntry.analysis.movementTitle}
             </span>
@@ -964,10 +1026,10 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
 
           <div className="preview-logic-hint">
             <div className="font-mono preview-folder-tag">
-              Папка: «{livePreviewEntry.analysis.folderName}»
+              {t('Папка', 'Folder')}: «{livePreviewEntry.analysis.folderName}»
             </div>
             <div className="preview-sub">
-              Настроение: {livePreviewEntry.analysis.moodLabel} · Ритм{' '}
+              {t('Настроение', 'Mood')}: {livePreviewEntry.analysis.moodLabel} · {t('Ритм', 'Rhythm')}{' '}
               {livePreviewEntry.analysis.visualParams.rhythmSpeed}×
             </div>
           </div>
