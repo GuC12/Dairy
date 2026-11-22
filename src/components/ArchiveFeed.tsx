@@ -502,7 +502,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                         compact
                         frostMode
                         onFrostClarityChange={(c) => {
-                          if (c > 0.5) onMarkRevealed?.(entry.id);
+                          if (c > 0.75) onMarkRevealed?.(entry.id);
                         }}
                         isPlaying={isCardActive}
                         getSpectrum={
