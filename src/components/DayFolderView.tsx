@@ -86,13 +86,17 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
   const audioCtrlRef = useRef<DayAudioController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const initiallyRevealedRef = useRef(initiallyRevealed);
+  useEffect(() => {
+    initiallyRevealedRef.current = initiallyRevealed;
+  }, [initiallyRevealed]);
 
   useEffect(() => {
     const ctrl = new DayAudioController();
     audioCtrlRef.current = ctrl;
     if (initialImmersive || initialAutoReel) {
       ctrl.start(entry.music);
-      if (!initialAutoReel && !initiallyRevealed) {
+      if (!initialAutoReel && !initiallyRevealedRef.current) {
         ctrl.setMemoryClarity(0.08);
       }
     }
@@ -102,7 +106,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         window.speechSynthesis.cancel();
       }
     };
-  }, [entry.id, entry.music, initialImmersive, initialAutoReel, initiallyRevealed]);
+  }, [entry.id, entry.music, initialImmersive, initialAutoReel]);
 
   // Авто-фильм дневника (перелистывание каждые 9 секунд в режиме погружения)
   useEffect(() => {
