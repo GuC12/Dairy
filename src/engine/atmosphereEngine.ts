@@ -456,32 +456,53 @@ export async function analyzeDayAtmosphere(
   }
 }
 
-function buildLiveMusicQuery(text: string, avgWarmth: number): string {
+const RECENT_TRACKS_KEY = 'yourdiary_recent_tracks';
+
+function getRecentTrackKeys(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_TRACKS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberTrackKey(key: string): void {
+  try {
+    const prev = getRecentTrackKeys().filter((k) => k !== key);
+    const next = [key, ...prev].slice(0, 30);
+    localStorage.setItem(RECENT_TRACKS_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
+function buildLiveMusicQueries(text: string, avgWarmth: number): string[] {
   const lower = text.toLowerCase();
   if (/(закат|золотой|рассвет|вечер|sunset|golden)/.test(lower)) {
-    return 'sunset dream pop indie';
+    return ['dream pop', 'shoegaze', 'indie chill', 'chillwave'];
   }
   if (/(кот|кош|собак|питом|уют|кофе|какао|дом|брусчат)/.test(lower)) {
-    return 'cozy lofi jazz chill';
+    return ['jazz hop', 'bossa nova', 'neo soul', 'indie folk'];
   }
   if (/(небо|поле|облак|воздух|трав|природ|лес|гор|море|океан)/.test(lower)) {
-    return 'ambient nature acoustic sky';
+    return ['indie folk', 'ambient electronic', 'post rock', 'acoustic indie'];
   }
   if (/(город|панорам|крыш|высот|улиц|ветер|ночь|огни|фонар)/.test(lower)) {
-    return 'night city indie synthwave';
+    return ['synthwave', 'post punk', 'indie rock', 'russian rock'];
   }
   if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум|спорт|драйв)/.test(lower)) {
-    return 'electronic focus energy';
+    return ['synthpop', 'electronic dance', 'nu disco', 'indie electronic'];
   }
   if (/(туман|дожд|груст|тоск|один|луж|rain|fog)/.test(lower)) {
-    return 'rainy day ambient piano';
+    return ['modern classical', 'sad indie', 'ambient piano', 'slowcore'];
   }
   if (/(парк|осень|тепл|тёпл|свеч|винил|любл|солнц|лето)/.test(lower)) {
-    return 'warm indie acoustic sunshine';
+    return ['vocal jazz', 'soul', 'indie pop', 'french pop'];
   }
   return avgWarmth > 0.05
-    ? 'warm indie pop chill'
-    : 'atmospheric indie midnight';
+    ? ['indie pop', 'neo soul', 'psychedelic pop', 'bossa nova']
+    : ['dream pop', 'ambient', 'indie rock', 'chillwave'];
 }
 
 export async function suggestMusicForDay(
@@ -556,10 +577,30 @@ export async function suggestMusicForDay(
   }
 
   // 2. Живой автоматический поиск в интернете (iTunes Search API) по настроению и тексту дня
-  const liveQuery = buildLiveMusicQuery(text, avgWarmth);
-  const liveTracks = await searchTrackPreviews(liveQuery, 15);
-  if (liveTracks.length > 0) {
-    const picked = liveTracks[Math.floor(Math.random() * liveTracks.length)];
+  const queries = buildLiveMusicQueries(text, avgWarmth);
+  const chosenQuery = queries[Math.floor(Math.random() * queries.length)];
+  const rawTracks = await searchTrackPreviews(chosenQuery, 25);
+
+  if (rawTracks.length > 0) {
+    // Отфильтровываем спам-названия и убираем повторы одного исполнителя
+    const recent = new Set(getRecentTrackKeys());
+    const seenArtists = new Set<string>();
+    const cleanUnique = rawTracks.filter((tr) => {
+      if (tr.title.length > 52) return false;
+      const artistKey = tr.artist.trim().toLowerCase();
+      if (!artistKey || seenArtists.has(artistKey)) return false;
+      seenArtists.add(artistKey);
+      return true;
+    });
+
+    const pool = cleanUnique.length > 0 ? cleanUnique : rawTracks;
+    const freshPool = pool.filter(
+      (tr) => !recent.has(`${tr.artist} - ${tr.title}`.toLowerCase())
+    );
+    const candidates = freshPool.length > 0 ? freshPool : pool;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    rememberTrackKey(`${picked.artist} - ${picked.title}`.toLowerCase());
+
     const spQuery = encodeURIComponent(`${picked.artist} ${picked.title}`.trim());
     return {
       mode: 'link',
