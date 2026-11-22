@@ -519,7 +519,6 @@ export function App() {
             }}
             onImport={handleCreated}
             onHoverEntry={setHoveredEntry}
-            revealedIds={revealedIds}
             onMarkRevealed={handleMarkRevealed}
           />
         )}

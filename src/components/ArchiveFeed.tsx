@@ -28,7 +28,6 @@ interface ArchiveFeedProps {
   onCreateNew: () => void;
   onImport: (entry: DiaryEntry) => void;
   onHoverEntry?: (entry: DiaryEntry | null) => void;
-  revealedIds?: Set<string>;
   onMarkRevealed?: (id: string) => void;
 }
 
@@ -60,7 +59,6 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   onCreateNew,
   onImport,
   onHoverEntry,
-  revealedIds,
   onMarkRevealed,
 }) => {
   const { t } = useLanguage();
@@ -502,7 +500,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                       <MemoryCanvas
                         entry={entry}
                         compact
-                        frostMode={!revealedIds?.has(entry.id)}
+                        frostMode
                         onFrostClarityChange={(c) => {
                           if (c > 0.5) onMarkRevealed?.(entry.id);
                         }}
