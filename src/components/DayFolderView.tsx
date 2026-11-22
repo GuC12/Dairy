@@ -63,7 +63,16 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     initialImmersive || initialAutoReel
   );
   const [isAutoReel, setIsAutoReel] = useState(initialAutoReel);
-  const [frostMode, setFrostMode] = useState(!initialAutoReel);
+  const [frostOverride, setFrostOverride] = useState<{
+    entryId: string;
+    value: boolean;
+  } | null>(null);
+  const frostMode =
+    frostOverride?.entryId === entry.id
+      ? frostOverride.value
+      : !initialAutoReel;
+  const setFrostMode = (value: boolean) =>
+    setFrostOverride({ entryId: entry.id, value });
   const [reelProgress, setReelProgress] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
@@ -73,10 +82,6 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
 
   const audioCtrlRef = useRef<DayAudioController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    setFrostMode(!initialAutoReel);
-  }, [entry.id, initialAutoReel]);
 
   useEffect(() => {
     const ctrl = new DayAudioController();
