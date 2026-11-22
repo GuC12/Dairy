@@ -63,9 +63,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     initialImmersive || initialAutoReel
   );
   const [isAutoReel, setIsAutoReel] = useState(initialAutoReel);
-  const [frostMode, setFrostMode] = useState(
-    initialImmersive && !initialAutoReel
-  );
+  const [frostMode, setFrostMode] = useState(!initialAutoReel);
   const [reelProgress, setReelProgress] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
@@ -77,10 +75,17 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
+    setFrostMode(!initialAutoReel);
+  }, [entry.id, initialAutoReel]);
+
+  useEffect(() => {
     const ctrl = new DayAudioController();
     audioCtrlRef.current = ctrl;
     if (initialImmersive || initialAutoReel) {
       ctrl.start(entry.music);
+      if (!initialAutoReel) {
+        ctrl.setMemoryClarity(0.08);
+      }
     }
     return () => {
       ctrl.stop();
@@ -145,6 +150,9 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
       setIsPlaying(false);
     } else {
       ctrl.start(entry.music);
+      if (frostMode) {
+        ctrl.setMemoryClarity(0.08);
+      }
       setIsPlaying(true);
     }
   };
