@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
   Disc3,
   Download,
   Film,
@@ -11,6 +13,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import type { ArtMovementId, DiaryEntry } from '../types/diary';
@@ -29,6 +32,7 @@ interface ArchiveFeedProps {
   onImport: (entry: DiaryEntry) => void;
   onHoverEntry?: (entry: DiaryEntry | null) => void;
   onMarkRevealed?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const FILTERS_DATA: Array<{
@@ -60,6 +64,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   onImport,
   onHoverEntry,
   onMarkRevealed,
+  onDelete,
 }) => {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
@@ -71,6 +76,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [showTapestry, setShowTapestry] = useState(false);
   const audioRef = useRef<DayAudioController | null>(null);
+  const dnaRibbonRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const ctrl = new DayAudioController();
@@ -187,17 +193,52 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                     )}
                   </span>
                 </div>
-                <span className="dna-stats">
-                  {entries.reduce((s, e) => s + e.photos.length, 0)}{' '}
-                  {t('фото', 'photos')} · {t('Ср. ритм', 'Avg rhythm')}{' '}
-                  {Math.round(
-                    entries.reduce((s, e) => s + e.music.bpm, 0) /
-                      entries.length
-                  )}{' '}
-                  BPM
-                </span>
+                <div className="dna-scroll-controls">
+                  <span className="dna-stats">
+                    {entries.reduce((s, e) => s + e.photos.length, 0)}{' '}
+                    {t('фото', 'photos')} · {t('Ср. ритм', 'Avg rhythm')}{' '}
+                    {Math.round(
+                      entries.reduce((s, e) => s + e.music.bpm, 0) /
+                        entries.length
+                    )}{' '}
+                    BPM
+                  </span>
+                  <button
+                    type="button"
+                    className="dna-scroll-btn"
+                    onClick={() =>
+                      dnaRibbonRef.current?.scrollBy({ left: -240, behavior: 'smooth' })
+                    }
+                    aria-label={t('Прокрутить влево', 'Scroll left')}
+                    title={t('Листать влево', 'Scroll left')}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dna-scroll-btn"
+                    onClick={() =>
+                      dnaRibbonRef.current?.scrollBy({ left: 240, behavior: 'smooth' })
+                    }
+                    aria-label={t('Прокрутить вправо', 'Scroll right')}
+                    title={t('Листать вправо', 'Scroll right')}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
-              <div className="dna-ribbon">
+              <div
+                ref={dnaRibbonRef}
+                className="dna-ribbon"
+                onWheel={(e) => {
+                  const el = dnaRibbonRef.current;
+                  if (!el || el.scrollWidth <= el.clientWidth) return;
+                  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                    e.preventDefault();
+                    el.scrollLeft += e.deltaY;
+                  }
+                }}
+              >
                 {entries.map((entry) => {
                   const colors = entry.photos[0]?.dominantColors ?? [
                     entry.analysis.palette.accent,
@@ -594,6 +635,32 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                         <span>{entry.music.bpm} BPM</span>
                       </div>
                     </div>
+
+                    {onDelete && (
+                      <button
+                        type="button"
+                        className="archive-card-delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const ok = window.confirm(
+                            t(
+                              `Удалить день «${entry.analysis.folderName}»?`,
+                              `Delete day "${entry.analysis.folderName}"?`
+                            )
+                          );
+                          if (!ok) return;
+                          if (playingId === entry.id) {
+                            audioRef.current?.stop();
+                            setPlayingId(null);
+                          }
+                          onDelete(entry.id);
+                        }}
+                        title={t('Удалить этот день', 'Delete this day')}
+                        aria-label={t('Удалить этот день', 'Delete this day')}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>

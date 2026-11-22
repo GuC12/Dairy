@@ -520,6 +520,7 @@ export function App() {
             onImport={handleCreated}
             onHoverEntry={setHoveredEntry}
             onMarkRevealed={handleMarkRevealed}
+            onDelete={handleDelete}
           />
         )}
       </main>

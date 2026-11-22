@@ -259,6 +259,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .genesis-exe-bar {
@@ -339,6 +341,33 @@
   border-radius: 12px;
   background: rgba(128, 128, 145, 0.07);
   border: 1px solid var(--border-subtle);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dna-scroll-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dna-scroll-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dna-scroll-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--border-hover);
 }
 
 .dna-head {
@@ -367,8 +396,8 @@
 }
 
 .dna-segment {
-  flex: 1 0 110px;
-  min-width: 110px;
+  flex: 1 0 142px;
+  min-width: 142px;
   height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 8px;
@@ -651,6 +680,28 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 10px;
+}
+
+.archive-card-delete-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.archive-card-delete-btn:hover {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.32);
 }
 
 .card-vinyl-row {
