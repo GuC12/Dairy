@@ -123,6 +123,22 @@ export class DayAudioController {
   private freqData: Uint8Array<ArrayBuffer> | null = null;
   private isPlaying = false;
   private baseVolume = 0.35;
+  private userVolume = 0.85;
+  private isDucked = false;
+
+  private getEffectiveGain(): number {
+    return this.baseVolume * this.userVolume * (this.isDucked ? 0.25 : 1);
+  }
+
+  public setVolume(volume: number): void {
+    this.userVolume = Math.max(0, Math.min(1, volume));
+    if (!this.ctx || !this.masterGain) return;
+    this.masterGain.gain.setTargetAtTime(
+      this.getEffectiveGain(),
+      this.ctx.currentTime,
+      0.06
+    );
+  }
 
   public start(music: MusicInput): void {
     this.stop();
@@ -147,7 +163,7 @@ export class DayAudioController {
 
     this.masterGain = this.ctx.createGain();
     this.baseVolume = hasAudioSource ? 0.85 : 0.38;
-    this.masterGain.gain.value = this.baseVolume;
+    this.masterGain.gain.value = this.getEffectiveGain();
 
     this.clarityFilter = this.ctx.createBiquadFilter();
     this.clarityFilter.type = 'lowpass';
@@ -200,7 +216,7 @@ export class DayAudioController {
   private playDirectAudioUrl(url: string, fallbackMusic: MusicInput): void {
     if (!this.ctx || !this.masterGain) return;
     this.baseVolume = 0.85;
-    this.masterGain.gain.value = this.baseVolume;
+    this.masterGain.gain.value = this.getEffectiveGain();
 
     const audio = new Audio(url);
     audio.loop = true;
@@ -216,9 +232,13 @@ export class DayAudioController {
   }
 
   public setDucking(ducked: boolean): void {
+    this.isDucked = ducked;
     if (!this.ctx || !this.masterGain) return;
-    const target = ducked ? this.baseVolume * 0.25 : this.baseVolume;
-    this.masterGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.25);
+    this.masterGain.gain.setTargetAtTime(
+      this.getEffectiveGain(),
+      this.ctx.currentTime,
+      0.25
+    );
   }
 
   /**

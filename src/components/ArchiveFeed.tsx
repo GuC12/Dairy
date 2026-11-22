@@ -94,6 +94,14 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
       ctrl.stop();
       setPlayingId(null);
     } else {
+      try {
+        const saved = localStorage.getItem('yourdiary_music_volume');
+        if (saved !== null) {
+          ctrl.setVolume(Number(saved));
+        }
+      } catch {
+        // ignore
+      }
       ctrl.start(entry.music);
       setPlayingId(entry.id);
       onHoverEntry?.(entry);

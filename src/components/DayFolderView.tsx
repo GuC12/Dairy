@@ -83,6 +83,18 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   const [bars, setBars] = useState<number[]>(() => Array(16).fill(0.08));
   const [pinnedPhotoIndex, setPinnedPhotoIndex] = useState<number | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
+  const [volume, setVolume] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('yourdiary_music_volume');
+      return saved ? Math.max(0, Math.min(1, Number(saved))) : 0.85;
+    } catch {
+      return 0.85;
+    }
+  });
+  const volumeRef = useRef(volume);
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
 
   const audioCtrlRef = useRef<DayAudioController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -94,6 +106,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   useEffect(() => {
     const ctrl = new DayAudioController();
     audioCtrlRef.current = ctrl;
+    ctrl.setVolume(volumeRef.current);
     if (initialImmersive || initialAutoReel) {
       ctrl.start(entry.music);
       if (!initialAutoReel && !initiallyRevealedRef.current) {
@@ -162,11 +175,23 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
       ctrl.stop();
       setIsPlaying(false);
     } else {
+      ctrl.setVolume(volume);
       ctrl.start(entry.music);
       if (frostMode) {
         ctrl.setMemoryClarity(0.08);
       }
       setIsPlaying(true);
+    }
+  };
+
+  const handleVolumeChange = (nextVol: number) => {
+    const clamped = Math.max(0, Math.min(1, nextVol));
+    setVolume(clamped);
+    audioCtrlRef.current?.setVolume(clamped);
+    try {
+      localStorage.setItem('yourdiary_music_volume', String(clamped));
+    } catch {
+      // ignore
     }
   };
 
@@ -450,6 +475,28 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
               {isSpeaking ? <VolumeX size={16} /> : <Mic size={16} />}
               {isSpeaking ? t('Стоп голос', 'Stop Voice') : t('Озвучить', 'Read Aloud')}
             </button>
+          </div>
+
+          <div className="volume-control-row font-mono">
+            <button
+              type="button"
+              className="btn-ghost volume-mute-btn"
+              onClick={() => handleVolumeChange(volume > 0 ? 0 : 0.85)}
+              title={volume > 0 ? t('Выключить звук', 'Mute') : t('Включить звук', 'Unmute')}
+              aria-label={t('Громкость музыки', 'Music volume')}
+            >
+              {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              onChange={(e) => handleVolumeChange(Number(e.target.value) / 100)}
+              className="volume-slider"
+              aria-label={t('Громкость музыки', 'Music volume')}
+            />
+            <span className="volume-pct">{Math.round(volume * 100)}%</span>
           </div>
 
           <div className="stage-export-row">
@@ -863,6 +910,25 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                 {isPlaying ? <Pause size={15} /> : <Play size={15} />}
                 {isPlaying ? t('Пауза', 'Pause') : t('Звук', 'Sound')}
               </button>
+              <div className="immersive-volume-wrap font-mono">
+                <button
+                  type="button"
+                  className="btn-ghost volume-mute-btn"
+                  onClick={() => handleVolumeChange(volume > 0 ? 0 : 0.85)}
+                  aria-label={t('Громкость музыки', 'Music volume')}
+                >
+                  {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(volume * 100)}
+                  onChange={(e) => handleVolumeChange(Number(e.target.value) / 100)}
+                  className="volume-slider volume-slider-sm"
+                  aria-label={t('Громкость музыки', 'Music volume')}
+                />
+              </div>
               <button className="btn-secondary" onClick={toggleVoice}>
                 {isSpeaking ? <VolumeX size={15} /> : <Mic size={15} />}
                 {isSpeaking ? t('Стоп голос', 'Stop Voice') : t('Озвучить', 'Read Aloud')}
