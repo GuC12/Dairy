@@ -3074,6 +3074,231 @@
   box-shadow: none !important;
 }
 
+/* ============================================================================
+   MOBILE ADAPTATION (<= 640px)
+   ============================================================================ */
+@media (max-width: 640px) {
+  .app-shell {
+    overflow-x: hidden;
+  }
+
+  .main-stage {
+    padding: 14px 12px 44px;
+  }
+
+  .topbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .topbar-nav {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .nav-tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .archive-hero {
+    padding: 16px 14px;
+    border-radius: 16px;
+    gap: 16px;
+  }
+
+  .genesis-exe-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 10px;
+    padding: 6px 10px;
+  }
+
+  .hero-title {
+    font-size: clamp(26px, 7.5vw, 34px);
+    line-height: 1.08;
+  }
+
+  .hero-subtitle {
+    font-size: 13.5px;
+    margin-bottom: 14px;
+  }
+
+  .dna-head-between {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dna-segment {
+    flex: 0 0 124px;
+    min-width: 124px;
+    height: 36px;
+    padding: 0 8px;
+  }
+
+  .archive-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .search-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filter-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-pill {
+    flex-shrink: 0;
+  }
+
+  .archive-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .archive-card-editorial {
+    grid-template-columns: 1fr;
+  }
+
+  .folder-topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .folder-path {
+    display: none;
+  }
+
+  .topbar-right-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .stage-controls,
+  .stage-export-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stage-controls > button,
+  .stage-export-row > button {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+
+  .detail-card {
+    padding: 16px 14px;
+  }
+
+  .folder-title {
+    font-size: clamp(24px, 6.5vw, 32px);
+  }
+
+  .photos-strip {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  }
+
+  .immersive-topbar {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .immersive-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .immersive-body {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 14px;
+    overflow-y: auto;
+  }
+
+  .immersive-canvas-box {
+    max-width: 100%;
+  }
+
+  .create-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .create-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .form-card {
+    padding: 14px;
+  }
+
+  .form-card-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meta-grid,
+  .music-input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lightbox-overlay {
+    padding: 10px;
+  }
+
+  .lightbox-box,
+  .auth-custom-modal {
+    padding: 16px 14px;
+    max-width: 100%;
+  }
+
+  .auth-mode-tabs {
+    gap: 4px;
+  }
+
+  .mode-tab {
+    flex: 1 1 auto;
+    justify-content: center;
+    font-size: 11px;
+    padding: 7px 8px;
+  }
+
+  .welcome-grid,
+  .welcome-features {
+    grid-template-columns: 1fr;
+  }
+
+  .app-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px 12px;
+    font-size: 10.5px;
+  }
+}
+
+
 
 
 

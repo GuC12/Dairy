@@ -846,6 +846,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         borderRadius: '4px',
         boxShadow: '0 14px 36px rgba(20, 18, 15, 0.12)',
         cursor: compact ? 'pointer' : 'crosshair',
+        touchAction: frostMode && !compact ? 'none' : 'auto',
       }}
     />
   );
