@@ -132,8 +132,24 @@ function generateLocalFolderName(
     ночь: mood === 'tense-electric' ? 'Собранная ночь' : 'Поздняя ночь',
   };
 
+  const trimmed = text.trim().replace(/[.!?…]+$/, '');
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2 && words.length <= 7) {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+
   if (foundMotifs.length > 0) {
     return `${timePrefix[timeOfDay]} ${foundMotifs.join(' ')}`;
+  }
+
+  if (words.length > 7) {
+    const firstClause = trimmed.split(/[.!?\n,;—]+/)[0]?.trim() ?? '';
+    const clauseWords = firstClause.split(/\s+/).filter(Boolean);
+    if (clauseWords.length >= 2 && clauseWords.length <= 6) {
+      return firstClause.charAt(0).toUpperCase() + firstClause.slice(1);
+    }
+    const snippet = words.slice(0, 5).join(' ');
+    return snippet.charAt(0).toUpperCase() + snippet.slice(1);
   }
 
   const moodSuffix: Record<MoodTone, string> = {

@@ -345,38 +345,44 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
         ctx.fillStyle = glow;
         ctx.fillRect(frameX, frameY, frameW, frameH);
       } else if (movement === 'constructivism') {
-        const splitX =
-          frameX + frameW * (0.28 + spec.bass * 0.08) + parallaxX * 1.4;
-        const splitY =
-          frameY + frameH * (0.68 - spec.energy * 0.06) + parallaxY * 1.4;
+        const cornerLen = frameW * 0.18;
+        const inset = compact ? 10 : 16;
 
         ctx.fillStyle = palette.secondary;
-        ctx.globalAlpha = 0.16 + spec.mid * 0.12;
-        ctx.fillRect(frameX, splitY, splitX - frameX, frameY + frameH - splitY);
+        ctx.globalAlpha = 0.1 + spec.mid * 0.08;
+        ctx.fillRect(
+          frameX,
+          frameY + frameH - cornerLen * 0.45,
+          cornerLen * 1.1,
+          cornerLen * 0.45
+        );
 
+        // Аккуратные угловые акценты вместо линий по центру фото
         ctx.strokeStyle = palette.accent;
-        ctx.lineWidth = compact ? 2 : 3;
-        ctx.globalAlpha = 0.85;
+        ctx.lineWidth = compact ? 1.4 : 2;
+        ctx.globalAlpha = 0.42;
         ctx.beginPath();
-        ctx.moveTo(splitX, frameY);
-        ctx.lineTo(splitX, frameY + frameH);
-        ctx.moveTo(frameX, splitY);
-        ctx.lineTo(frameX + frameW, splitY);
+        ctx.moveTo(frameX + inset, frameY + inset + cornerLen);
+        ctx.lineTo(frameX + inset, frameY + inset);
+        ctx.lineTo(frameX + inset + cornerLen, frameY + inset);
+        ctx.moveTo(frameX + frameW - inset - cornerLen, frameY + frameH - inset);
+        ctx.lineTo(frameX + frameW - inset, frameY + frameH - inset);
+        ctx.lineTo(frameX + frameW - inset, frameY + frameH - inset - cornerLen);
         ctx.stroke();
 
-        const cx = frameX + frameW * 0.77 - parallaxX * 1.1;
-        const cy = frameY + frameH * 0.24 - parallaxY * 1.1;
-        const baseR = (20 + spec.bass * 38) * (compact ? 0.68 : 1);
+        const cx = frameX + frameW * 0.85 - parallaxX * 0.8;
+        const cy = frameY + frameH * 0.18 - parallaxY * 0.8;
+        const baseR = (14 + spec.bass * 22) * (compact ? 0.65 : 1);
 
         ctx.fillStyle = palette.accent;
-        ctx.globalAlpha = 0.3 + spec.bass * 0.35;
+        ctx.globalAlpha = 0.18 + spec.bass * 0.2;
         ctx.beginPath();
         ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.strokeStyle = palette.ink;
-        ctx.lineWidth = compact ? 1.2 : 2;
-        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = compact ? 1 : 1.5;
+        ctx.globalAlpha = 0.25;
         ctx.beginPath();
         ctx.arc(
           cx,
@@ -384,14 +390,6 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           baseR * 1.45,
           elapsed * 0.8,
           elapsed * 0.8 + Math.PI * 1.3
-        );
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(frameX + 20, frameY + frameH - 30);
-        ctx.lineTo(
-          frameX + frameW * 0.64 + parallaxX,
-          frameY + 38 + parallaxY
         );
         ctx.stroke();
         ctx.globalAlpha = 1;
