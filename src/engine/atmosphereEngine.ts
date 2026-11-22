@@ -493,40 +493,39 @@ function rememberTrackKey(key: string): void {
   }
 }
 
+const MUSIC_QUERY_PROFILES: Array<[RegExp, string[]]> = [
+  [/(фортнайт|fortnite|кс|cs2|дота|dota|майнкрафт|minecraft|валорант|valorant|игр|катка|стрим|гейм|gaming|консол|playstation|xbox)/, ['electronic gaming', 'future bass', 'synthwave', 'hyperpop']],
+  [/(аниме|манг|косплей|токио|япон|anime|manga|tokyo|kpop|к-поп)/, ['j-pop', 'city pop', 'anime ost', 'shibuya-kei']],
+  [/(хакатон|код|программ|релиз|деплой|сервер|проект|стартап|баг|hackathon|code|dev)/, ['cyberpunk synth', 'idm electronic', 'lo-fi beats', 'ambient techno']],
+  [/(сдал|экзамен|диплом|побед|выигр|первое место|ура|достиж|успех)/, ['triumphant pop', 'indie anthem', 'feel good pop', 'nu disco']],
+  [/(вечерин|клуб|концерт|фестиваль|день рожден|праздник|танц|тусов|party|concert)/, ['dance pop', 'house', 'funk', 'nu disco']],
+  [/(свидан|любл|любим|поцел|обнят|девушк|парень|романтик|вместе|date|love)/, ['romantic r&b', 'dream pop', 'soul ballad', 'french pop']],
+  [/(друз|подруг|встрет|болт|смех|компан|погулял|гулял|friends)/, ['indie pop', 'feel good indie', 'surf rock', 'pop rock']],
+  [/(трениров|зал|спорт|бег|пробеж|велосип|футбол|баскет|плаван|gym|workout|run)/, ['workout electronic', 'hip hop', 'energetic rock', 'drum and bass']],
+  [/(поезд|дорог|машин|такси|путешеств|полет|полёт|аэропорт|самолет|самолёт|трасс|road|trip|travel)/, ['road trip indie', 'classic rock', 'synthwave', 'indie folk']],
+  [/(море|океан|пляж|волн|берег|остров|отпуск|песок|ocean|beach|sea)/, ['tropical house', 'surf pop', 'bossa nova', 'chillwave']],
+  [/(лес|гор|поход|палатк|костёр|костер|троп|природ|дерев|поле|цвет|трав|forest|mountain|nature)/, ['indie folk', 'ambient acoustic', 'folk rock', 'post rock']],
+  [/(закат|рассвет|золотой час|горизонт|солнц|небо|облак|sunset|sunrise|golden)/, ['dream pop', 'shoegaze', 'chillwave', 'balearic']],
+  [/(дожд|гроз|ливень|луж|туман|пасмур|зонт|rain|storm|fog)/, ['rainy day jazz', 'ambient piano', 'trip hop', 'modern classical']],
+  [/(снег|зим|мороз|метел|сугроб|каток|лыж|новый год|ёлка|елка|snow|winter)/, ['winter ambient', 'neoclassical', 'cozy acoustic', 'nordic indie']],
+  [/(осен|лист|парк|плед|свитер|октябр|ноябр|autumn|fall)/, ['vocal jazz', 'acoustic folk', 'chamber pop', 'indie folk']],
+  [/(весн|тепл|тёпл|сирен|март|апрел|май|spring|bloom)/, ['bossa nova', 'indie pop', 'acoustic pop', 'french pop']],
+  [/(лет|жар|морожен|июнь|июл|август|каникул|summer)/, ['summer indie', 'disco pop', 'reggae fusion', 'funk']],
+  [/(кофе|какао|чай|кафе|кофейн|завтрак|круассан|пирог|вкусн|ужин|обед|coffee|cafe)/, ['jazz hop', 'bossa nova', 'cafe jazz', 'neo soul']],
+  [/(кот|кош|котик|котён|собак|пёс|пес|щен|питом|cat|dog)/, ['cozy lofi', 'indie folk', 'jazz pop', 'acoustic chill']],
+  [/(учеб|учёб|книг|чита|лекц|универ|школ|рисова|краск|этюд|фотограф|музе|выстав|book|art|study)/, ['classical piano', 'ambient study', 'chamber music', 'minimalism']],
+  [/(ноч|неон|огни|фонар|метро|проспект|город|крыш|высот|улиц|ветер|midnight|city|neon)/, ['synthwave', 'post punk', 'darkwave', 'russian rock']],
+  [/(груст|тоск|один|устал|тяжел|тяжёл|тишин|молча|мысл|печал|sad|alone|quiet)/, ['slowcore', 'sad indie', 'ambient piano', 'cello solo']],
+  [/(отдых|спал|выспал|спокой|медитац|тихий|расслаб|ванна|сон|sleep|calm|chill)/, ['ambient meditation', 'downtempo', 'chillout', 'soft piano']],
+  [/(работ|офис|дедлайн|срочн|созвон|митинг|дел|сует|бегом|office|work)/, ['electronic focus', 'deep house', 'math rock', 'idm']],
+];
+
 function buildLiveMusicQueries(text: string, avgWarmth: number): string[] {
   const lower = text.toLowerCase();
-  if (/(фортнайт|fortnite|кс|cs2|дота|dota|майнкрафт|minecraft|валорант|valorant|игр|катка|стрим|гейм|gaming)/.test(lower)) {
-    return ['electronic gaming', 'future bass', 'synthwave', 'hyperpop'];
-  }
-  if (/(отлично|круто|кайф|побед|весел|смех|друз|вечерин|праздник|ура|party|happy)/.test(lower)) {
-    return ['feel good pop', 'nu disco', 'indie pop', 'funk'];
-  }
-  if (/(поезд|дорог|машин|путешеств|полет|полёт|аэропорт|road|trip|travel)/.test(lower)) {
-    return ['road trip indie', 'synthwave', 'alternative rock', 'indie folk'];
-  }
-  if (/(трениров|зал|спорт|бег|футбол|баскет|качал|gym|workout|run)/.test(lower)) {
-    return ['workout electronic', 'hip hop', 'energetic rock', 'drum and bass'];
-  }
-  if (/(закат|золотой|рассвет|вечер|sunset|golden)/.test(lower)) {
-    return ['dream pop', 'shoegaze', 'indie chill', 'chillwave'];
-  }
-  if (/(кот|кош|собак|питом|уют|кофе|какао|дом|брусчат)/.test(lower)) {
-    return ['jazz hop', 'bossa nova', 'neo soul', 'indie folk'];
-  }
-  if (/(небо|поле|облак|воздух|трав|природ|лес|гор|море|океан)/.test(lower)) {
-    return ['indie folk', 'ambient electronic', 'post rock', 'acoustic indie'];
-  }
-  if (/(город|панорам|крыш|высот|улиц|ветер|ночь|огни|фонар)/.test(lower)) {
-    return ['synthwave', 'post punk', 'indie rock', 'russian rock'];
-  }
-  if (/(срочн|сдач|дедлайн|офис|код|проект|бегом|шум|спорт|драйв)/.test(lower)) {
-    return ['synthpop', 'electronic dance', 'nu disco', 'indie electronic'];
-  }
-  if (/(туман|дожд|груст|тоск|один|луж|rain|fog)/.test(lower)) {
-    return ['modern classical', 'sad indie', 'ambient piano', 'slowcore'];
-  }
-  if (/(парк|осень|тепл|тёпл|свеч|винил|любл|солнц|лето)/.test(lower)) {
-    return ['vocal jazz', 'soul', 'indie pop', 'french pop'];
+  for (const [pattern, queries] of MUSIC_QUERY_PROFILES) {
+    if (pattern.test(lower)) {
+      return queries;
+    }
   }
   return avgWarmth > 0.05
     ? ['indie pop', 'neo soul', 'psychedelic pop', 'bossa nova']
