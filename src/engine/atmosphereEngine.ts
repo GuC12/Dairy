@@ -495,6 +495,18 @@ function rememberTrackKey(key: string): void {
 
 function buildLiveMusicQueries(text: string, avgWarmth: number): string[] {
   const lower = text.toLowerCase();
+  if (/(фортнайт|fortnite|кс|cs2|дота|dota|майнкрафт|minecraft|валорант|valorant|игр|катка|стрим|гейм|gaming)/.test(lower)) {
+    return ['electronic gaming', 'future bass', 'synthwave', 'hyperpop'];
+  }
+  if (/(отлично|круто|кайф|побед|весел|смех|друз|вечерин|праздник|ура|party|happy)/.test(lower)) {
+    return ['feel good pop', 'nu disco', 'indie pop', 'funk'];
+  }
+  if (/(поезд|дорог|машин|путешеств|полет|полёт|аэропорт|road|trip|travel)/.test(lower)) {
+    return ['road trip indie', 'synthwave', 'alternative rock', 'indie folk'];
+  }
+  if (/(трениров|зал|спорт|бег|футбол|баскет|качал|gym|workout|run)/.test(lower)) {
+    return ['workout electronic', 'hip hop', 'energetic rock', 'drum and bass'];
+  }
   if (/(закат|золотой|рассвет|вечер|sunset|golden)/.test(lower)) {
     return ['dream pop', 'shoegaze', 'indie chill', 'chillwave'];
   }

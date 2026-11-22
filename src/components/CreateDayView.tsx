@@ -437,8 +437,11 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     setIsSuggestingMusic(true);
     setError(null);
     try {
+      const contextQuery = [text.trim(), signature.trim(), location.trim()]
+        .filter(Boolean)
+        .join(' ');
       const picked = await suggestMusicForDay(
-        text.trim() || 'Спокойный вечер',
+        contextQuery || 'Спокойный вечер',
         photos,
         geminiApiKey
       );
@@ -452,15 +455,20 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
       setHasExactMetrics(true);
       setMusicUrl(picked.url ?? '');
 
-      // Попробуем подтянуть реальное 30-сек превью для подобранного трека
-      const previews = await searchTrackPreviews(
-        `${picked.artist} ${picked.title}`
-      );
-      if (previews[0]?.previewUrl) {
-        setPreviewUrl(previews[0].previewUrl);
-        setArtworkUrl(previews[0].artworkUrl);
+      if (picked.previewUrl) {
+        setPreviewUrl(picked.previewUrl);
+        setArtworkUrl(picked.artworkUrl);
       } else {
-        setPreviewUrl(undefined);
+        // Попробуем подтянуть реальное 30-сек превью для подобранного трека
+        const previews = await searchTrackPreviews(
+          `${picked.artist} ${picked.title}`
+        );
+        if (previews[0]?.previewUrl) {
+          setPreviewUrl(previews[0].previewUrl);
+          setArtworkUrl(previews[0].artworkUrl);
+        } else {
+          setPreviewUrl(undefined);
+        }
       }
     } finally {
       setIsSuggestingMusic(false);
@@ -523,19 +531,26 @@ export const CreateDayView: React.FC<CreateDayViewProps> = ({
     try {
       let music: MusicInput;
       if (!musicTitle.trim() && !audioDataUrl) {
+        const contextQuery = [text.trim(), signature.trim(), location.trim()]
+          .filter(Boolean)
+          .join(' ');
         const autoPicked = await suggestMusicForDay(
-          text.trim(),
+          contextQuery,
           photos,
           geminiApiKey
         );
-        const previews = await searchTrackPreviews(
-          `${autoPicked.artist} ${autoPicked.title}`
-        );
-        music = {
-          ...autoPicked,
-          previewUrl: previews[0]?.previewUrl,
-          artworkUrl: previews[0]?.artworkUrl,
-        };
+        if (autoPicked.previewUrl) {
+          music = autoPicked;
+        } else {
+          const previews = await searchTrackPreviews(
+            `${autoPicked.artist} ${autoPicked.title}`
+          );
+          music = {
+            ...autoPicked,
+            previewUrl: previews[0]?.previewUrl,
+            artworkUrl: previews[0]?.artworkUrl,
+          };
+        }
       } else {
         music = {
           mode: musicMode,
