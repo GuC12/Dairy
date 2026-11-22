@@ -28,6 +28,8 @@ interface ArchiveFeedProps {
   onCreateNew: () => void;
   onImport: (entry: DiaryEntry) => void;
   onHoverEntry?: (entry: DiaryEntry | null) => void;
+  revealedIds?: Set<string>;
+  onMarkRevealed?: (id: string) => void;
 }
 
 const FILTERS_DATA: Array<{
@@ -58,6 +60,8 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
   onCreateNew,
   onImport,
   onHoverEntry,
+  revealedIds,
+  onMarkRevealed,
 }) => {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
@@ -498,7 +502,10 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                       <MemoryCanvas
                         entry={entry}
                         compact
-                        frostMode
+                        frostMode={!revealedIds?.has(entry.id)}
+                        onFrostClarityChange={(c) => {
+                          if (c > 0.5) onMarkRevealed?.(entry.id);
+                        }}
                         isPlaying={isCardActive}
                         getSpectrum={
                           isCardPlaying

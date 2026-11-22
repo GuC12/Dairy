@@ -358,12 +358,18 @@
 .dna-ribbon {
   display: flex;
   gap: 8px;
-  height: 40px;
+  min-height: 44px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hover) transparent;
 }
 
 .dna-segment {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 110px;
+  min-width: 110px;
+  height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 8px;
   padding: 0 10px;

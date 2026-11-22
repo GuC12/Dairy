@@ -73,7 +73,17 @@ export function App() {
     }
   });
   const [cloudSynced, setCloudSynced] = useState(false);
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(() => new Set());
   const clerkSignOutRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleMarkRevealed = useCallback((id: string) => {
+    setRevealedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const geminiApiKey = useMemo(() => {
     try {
@@ -427,6 +437,8 @@ export function App() {
             hasNext={selectedIdx >= 0 && selectedIdx < entries.length - 1}
             initialImmersive={autoImmersive}
             initialAutoReel={autoReel}
+            initiallyRevealed={revealedIds.has(selectedEntry.id)}
+            onMarkRevealed={() => handleMarkRevealed(selectedEntry.id)}
             onPrev={() => {
               if (selectedIdx > 0) {
                 setAutoImmersive(false);
@@ -507,6 +519,8 @@ export function App() {
             }}
             onImport={handleCreated}
             onHoverEntry={setHoveredEntry}
+            revealedIds={revealedIds}
+            onMarkRevealed={handleMarkRevealed}
           />
         )}
       </main>

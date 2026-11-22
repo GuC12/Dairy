@@ -33,6 +33,8 @@ interface DayFolderViewProps {
   hasNext?: boolean;
   initialImmersive?: boolean;
   initialAutoReel?: boolean;
+  initiallyRevealed?: boolean;
+  onMarkRevealed?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   onNextReel?: () => void;
@@ -47,6 +49,8 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   hasNext = false,
   initialImmersive = false,
   initialAutoReel = false,
+  initiallyRevealed = false,
+  onMarkRevealed,
   onPrev,
   onNext,
   onNextReel,
@@ -70,7 +74,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
   const frostMode =
     frostOverride?.entryId === entry.id
       ? frostOverride.value
-      : !initialAutoReel;
+      : !initialAutoReel && !initiallyRevealed;
   const setFrostMode = (value: boolean) =>
     setFrostOverride({ entryId: entry.id, value });
   const [reelProgress, setReelProgress] = useState(0);
@@ -88,7 +92,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     audioCtrlRef.current = ctrl;
     if (initialImmersive || initialAutoReel) {
       ctrl.start(entry.music);
-      if (!initialAutoReel) {
+      if (!initialAutoReel && !initiallyRevealed) {
         ctrl.setMemoryClarity(0.08);
       }
     }
@@ -98,7 +102,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
         window.speechSynthesis.cancel();
       }
     };
-  }, [entry.id, entry.music, initialImmersive, initialAutoReel]);
+  }, [entry.id, entry.music, initialImmersive, initialAutoReel, initiallyRevealed]);
 
   // Авто-фильм дневника (перелистывание каждые 9 секунд в режиме погружения)
   useEffect(() => {
@@ -287,12 +291,16 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     const next = !frostMode;
     setFrostMode(next);
     audioCtrlRef.current?.setMemoryClarity(next ? 0.08 : 1);
+    if (!next) {
+      onMarkRevealed?.();
+    }
   };
 
   const handleFrostClarity = (clarity: number) => {
     audioCtrlRef.current?.setMemoryClarity(clarity);
-    if (clarity >= 1 && frostMode) {
-      setFrostMode(false);
+    if (clarity >= 1) {
+      if (frostMode) setFrostMode(false);
+      onMarkRevealed?.();
     }
   };
 
