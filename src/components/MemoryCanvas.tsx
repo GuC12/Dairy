@@ -610,7 +610,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       }
 
       // 4D. Слой «Туман памяти» (стирается движением курсора)
-      if (frostMode && !compact) {
+      if (frostMode) {
         const cols = 8;
         const rows = 10;
         const cells = frostCellsRef.current;
@@ -629,7 +629,8 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
             const cy = frameY + (r + 0.5) * cellH;
             const rad = Math.max(cellW, cellH) * 0.95;
             const fg = ctx.createRadialGradient(cx, cy, 4, cx, cy, rad);
-            fg.addColorStop(0, `rgba(248, 244, 236, ${density * 0.92})`);
+            const maxAlpha = compact ? 0.84 : 0.92;
+            fg.addColorStop(0, `rgba(248, 244, 236, ${density * maxAlpha})`);
             fg.addColorStop(1, `rgba(235, 226, 212, 0)`);
             ctx.fillStyle = fg;
             ctx.fillRect(
@@ -643,7 +644,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
 
         const avgRemain = remainSum / (cols * rows);
         const clarity = Math.min(1, Math.max(0, 1 - avgRemain));
-        if (clarity < 0.82) {
+        if (!compact && clarity < 0.82) {
           ctx.fillStyle = 'rgba(24, 22, 20, 0.78)';
           ctx.fillRect(
             frameX + frameW * 0.1,

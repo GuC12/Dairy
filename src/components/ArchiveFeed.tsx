@@ -498,6 +498,7 @@ export const ArchiveFeed: React.FC<ArchiveFeedProps> = ({
                       <MemoryCanvas
                         entry={entry}
                         compact
+                        frostMode
                         isPlaying={isCardActive}
                         getSpectrum={
                           isCardPlaying
