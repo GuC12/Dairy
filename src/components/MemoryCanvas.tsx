@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../types/diary';
 import type { SpectrumMetrics } from '../engine/audioAnalyzer';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface MemoryCanvasProps {
   entry: DiaryEntry;
@@ -44,6 +45,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
   onFrostClarityChange,
   canvasRefOut,
 }) => {
+  const { t } = useLanguage();
   const internalRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = canvasRefOut ?? internalRef;
   const imagesRef = useRef<HTMLImageElement[]>([]);
@@ -656,7 +658,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(
-            `Проведите курсором, чтобы стереть туман (${Math.round(
+            `${t('Проведите курсором, чтобы вспомнить', 'Wipe with cursor to reveal')} (${Math.round(
               clarity * 100
             )}%)`,
             frameX + frameW * 0.5,
@@ -759,6 +761,7 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
     frostMode,
     imagesVersion,
     canvasRef,
+    t,
   ]);
 
   const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -811,7 +814,8 @@ export const MemoryCanvas: React.FC<MemoryCanvasProps> = ({
       }
       if (changed && onFrostClarityChangeRef.current) {
         const remain = cells.reduce((a, b) => a + b, 0) / cells.length;
-        onFrostClarityChangeRef.current(Math.min(1, Math.max(0.05, 1 - remain)));
+        const clarity = Math.min(1, Math.max(0.05, 1 - remain));
+        onFrostClarityChangeRef.current(clarity >= 0.82 ? 1 : clarity);
       }
     }
   };

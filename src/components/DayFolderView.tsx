@@ -270,6 +270,19 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleToggleFrost = () => {
+    const next = !frostMode;
+    setFrostMode(next);
+    audioCtrlRef.current?.setMemoryClarity(next ? 0.08 : 1);
+  };
+
+  const handleFrostClarity = (clarity: number) => {
+    audioCtrlRef.current?.setMemoryClarity(clarity);
+    if (clarity >= 1 && frostMode) {
+      setFrostMode(false);
+    }
+  };
+
   return (
     <div className="folder-view view-enter">
       <div
@@ -364,9 +377,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             isPlaying={isPlaying}
             pinnedPhotoIndex={pinnedPhotoIndex}
             frostMode={frostMode}
-            onFrostClarityChange={(c) =>
-              audioCtrlRef.current?.setMemoryClarity(c)
-            }
+            onFrostClarityChange={handleFrostClarity}
             getSpectrum={() =>
               audioCtrlRef.current?.getSpectrumMetrics() ?? {
                 bass: 0,
@@ -417,6 +428,21 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
           </div>
 
           <div className="stage-export-row">
+            <button
+              type="button"
+              className={`btn-secondary ${frostMode ? 'is-active' : ''}`}
+              onClick={handleToggleFrost}
+              title={t(
+                'Погрузиться в воспоминание: покройте кадр туманом времени и сотрите его курсором, чтобы проявить фото и звук',
+                'Cover the memory in fog of time and wipe with cursor to reveal photo and sound'
+              )}
+            >
+              <Sparkles size={15} />
+              {frostMode
+                ? t('Проявить сразу', 'Reveal Now')
+                : t('Туман времени', 'Fog of Time')}
+            </button>
+
             <button
               className="btn-secondary"
               onClick={handleDownloadPng}
@@ -786,18 +812,16 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
             <div className="immersive-actions">
               <button
                 className={`btn-secondary ${frostMode ? 'is-active' : ''}`}
-                onClick={() => {
-                  const next = !frostMode;
-                  setFrostMode(next);
-                  audioCtrlRef.current?.setMemoryClarity(next ? 0.08 : 1);
-                }}
+                onClick={handleToggleFrost}
                 title={t(
                   'Покрыть воспоминание туманом времени и стереть его курсором',
                   'Cover the memory in fog of time and wipe it with cursor'
                 )}
               >
                 <Sparkles size={15} />
-                {frostMode ? t('Туман: ВКЛ', 'Fog: ON') : t('Туман памяти', 'Memory Fog')}
+                {frostMode
+                  ? t('Проявить сразу', 'Reveal Now')
+                  : t('Туман времени', 'Fog of Time')}
               </button>
               <button
                 className={`btn-secondary ${isAutoReel ? 'is-active' : ''}`}
@@ -837,9 +861,7 @@ export const DayFolderView: React.FC<DayFolderViewProps> = ({
                 entry={entry}
                 isPlaying={isPlaying}
                 frostMode={frostMode}
-                onFrostClarityChange={(c) =>
-                  audioCtrlRef.current?.setMemoryClarity(c)
-                }
+                onFrostClarityChange={handleFrostClarity}
                 getSpectrum={() =>
                   audioCtrlRef.current?.getSpectrumMetrics() ?? {
                     bass: 0,
